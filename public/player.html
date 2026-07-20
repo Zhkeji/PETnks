@@ -3,428 +3,276 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#059669">
   <title>三角洲护航 - 接单员工作台</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
   <style>
-    :root {
-      --primary: #059669;
-      --primary-light: #ECFDF5;
-      --primary-dark: #047857;
-      --bg: #F5F5F7;
-      --card: #FFFFFF;
-      --text: #1A1A2E;
-      --text-secondary: #6B7280;
-      --text-muted: #9CA3AF;
-      --border: #E5E7EB;
-      --success: #10B981;
-      --warning: #F59E0B;
-      --danger: #EF4444;
-      --shadow: 0 2px 12px rgba(0,0,0,0.08);
-      --radius: 16px;
-      --radius-sm: 10px;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-    .tab-bar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--card); display: flex;
-      border-top: 1px solid var(--border); z-index: 100;
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-    .tab-item {
-      flex: 1; display: flex; flex-direction: column; align-items: center;
-      padding: 8px 0; cursor: pointer; color: var(--text-muted);
-      transition: all 0.2s; font-size: 10px; font-weight: 600;
-    }
+    :root { --primary: #059669; --primary-dark: #047857; --primary-light: #ECFDF5; --primary-gradient: linear-gradient(135deg, #059669, #34D399); }
+    .topbar { background: var(--primary-gradient); }
     .tab-item.active { color: var(--primary); }
-    .tab-item svg { width: 24px; height: 24px; margin-bottom: 2px; }
-    .page { display: none; padding-bottom: 70px; min-height: 100vh; }
-    .page.active { display: block; }
-    .status-bar {
-      background: linear-gradient(135deg, var(--primary), #34D399);
-      color: white; padding: 12px 16px;
-      display: flex; justify-content: space-between; align-items: center;
-      position: sticky; top: 0; z-index: 50;
-    }
-    .status-bar h1 { font-size: 18px; font-weight: 800; }
-    /* 卡片 */
-    .card {
-      background: var(--card); border-radius: var(--radius);
-      padding: 16px; margin: 12px 16px;
-      box-shadow: var(--shadow);
-    }
-    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .tab-item.active::before { background: var(--primary); }
+    .btn-primary { background: var(--primary); }
+    .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 12px rgba(5,150,105,0.3); }
+    .s-ASSIGNED { background: #E0E7FF; color: #4F46E5; }
+    .s-IN_PROGRESS { background: var(--primary-light); color: var(--primary); }
+    .s-COMPLETED { background: #ECFDF5; color: #10B981; }
     /* 统计 */
-    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 12px 16px; }
-    .stat-box {
-      background: var(--card); border-radius: var(--radius-sm);
-      padding: 16px; text-align: center; box-shadow: var(--shadow);
-    }
-    .stat-box .value { font-size: 24px; font-weight: 800; color: var(--primary); }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 16px; }
+    .stat-box { background: var(--card); border-radius: var(--radius-sm); padding: 14px; text-align: center; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; }
+    .stat-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--primary); }
+    .stat-box .value { font-size: 22px; font-weight: 800; color: var(--primary); }
     .stat-box .label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
     /* 抢单卡片 */
-    .grab-card {
-      background: var(--card); border-radius: var(--radius);
-      padding: 16px; margin: 0 16px 12px;
-      box-shadow: var(--shadow); border-left: 4px solid var(--primary);
-    }
+    .grab-card { background: var(--card); border-radius: var(--radius); padding: 16px; margin: 0 16px 12px; box-shadow: var(--shadow-sm); border-left: 4px solid var(--primary); transition: var(--transition); }
+    .grab-card:active { transform: scale(0.99); }
     .grab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .grab-title { font-size: 15px; font-weight: 700; }
     .grab-amount { font-size: 20px; font-weight: 800; color: var(--primary); }
-    .grab-info { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
-    .grab-btn {
-      width: 100%; padding: 10px; background: var(--primary); color: white;
-      border: none; border-radius: var(--radius-sm); font-size: 14px;
-      font-weight: 700; cursor: pointer; transition: all 0.2s;
-    }
-    .grab-btn:active { background: var(--primary-dark); }
-    .grab-btn:disabled { background: var(--text-muted); cursor: not-allowed; }
+    .grab-info { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6; }
+    .grab-btn { width: 100%; padding: 11px; background: var(--primary); color: white; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); }
+    .grab-btn:active { background: var(--primary-dark); transform: scale(0.98); }
     /* 订单卡片 */
-    .order-card {
-      background: var(--card); border-radius: var(--radius);
-      padding: 14px; margin: 0 16px 12px;
-      box-shadow: var(--shadow);
-    }
+    .order-card { background: var(--card); border-radius: var(--radius); padding: 14px; margin: 0 16px 12px; box-shadow: var(--shadow-sm); }
     .order-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-    .order-no { font-size: 12px; color: var(--text-muted); }
-    .order-status { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 10px; }
-    .s-ASSIGNED { background: #E0E7FF; color: #4F46E5; }
-    .s-IN_PROGRESS { background: #D1FAE5; color: #059669; }
-    .s-COMPLETED { background: #ECFDF5; color: #10B981; }
-    .order-product { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .order-no { font-size: 12px; color: var(--text-muted); font-family: 'SF Mono', monospace; }
+    .order-status { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
+    .order-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
     .order-info { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
     .order-footer { display: flex; justify-content: space-between; align-items: center; }
     .order-amount { font-size: 18px; font-weight: 800; color: var(--primary); }
-    .btn-sm { padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
-    /* 空状态 */
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
-    .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
-    /* 弹窗 */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
-    .modal-overlay.active { display: flex; }
-    .modal-sheet { background: var(--card); border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-height: 85vh; overflow-y: auto; padding: 20px; animation: slideUp 0.3s ease; }
-    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; text-align: center; }
-    .form-group { margin-bottom: 14px; }
-    .form-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block; }
-    .form-input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; outline: none; font-family: inherit; }
-    .form-input:focus { border-color: var(--primary); }
-    textarea.form-input { min-height: 80px; resize: vertical; }
-    .btn-block { width: 100%; padding: 14px; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; }
-    .btn-block.primary { background: var(--primary); color: white; }
-    /* 登录 */
-    .login-page { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 30px; background: linear-gradient(180deg, var(--primary), var(--primary) 40%, var(--bg) 40%); }
-    .login-box { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
-    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 999; display: none; }
-    .toast.show { display: block; }
+    /* 进度条 */
+    .progress-bar { height: 4px; background: var(--border-light); border-radius: 2px; margin: 8px 0; overflow: hidden; }
+    .progress-bar .fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.5s ease; }
     /* 个人中心 */
-    .profile-header { background: linear-gradient(135deg, var(--primary), #34D399); color: white; padding: 30px 20px; text-align: center; }
-    .profile-avatar { width: 70px; height: 70px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
-    .profile-name { font-size: 18px; font-weight: 700; }
-    .menu-group { background: var(--card); border-radius: var(--radius); overflow: hidden; margin: 12px 16px; box-shadow: var(--shadow); }
-    .menu-item { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid var(--border); }
+    .profile-hero { background: var(--primary-gradient); color: white; padding: 32px 20px; text-align: center; position: relative; overflow: hidden; }
+    .profile-hero::before { content: ''; position: absolute; top: -50%; right: -30%; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.08); }
+    .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 32px; border: 3px solid rgba(255,255,255,0.3); position: relative; z-index: 1; }
+    .profile-name { font-size: 18px; font-weight: 700; position: relative; z-index: 1; }
+    .profile-status { font-size: 12px; opacity: 0.8; margin-top: 4px; position: relative; z-index: 1; }
+    .earnings-card { margin: -24px 16px 16px; background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-lg); position: relative; z-index: 2; }
+    .earnings-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .earnings-item { text-align: center; padding: 12px; background: var(--border-light); border-radius: var(--radius-sm); }
+    .earnings-item .value { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .earnings-item .label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    /* 性能指标 */
+    .perf-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 16px; margin-bottom: 16px; }
+    .perf-item { text-align: center; background: var(--card); padding: 10px 6px; border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); }
+    .perf-item .value { font-size: 16px; font-weight: 800; }
+    .perf-item .label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    /* 登录 */
+    .login-page { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 32px; background: var(--primary-gradient); }
+    .login-logo { text-align: center; color: white; margin-bottom: 32px; }
+    .login-logo .icon { font-size: 56px; margin-bottom: 10px; }
+    .login-logo h1 { font-size: 24px; font-weight: 800; }
+    .login-logo p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .login-box { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-xl); }
+    /* 菜单 */
+    .menu-group { background: var(--card); border-radius: var(--radius); overflow: hidden; margin: 12px 16px; box-shadow: var(--shadow-sm); }
+    .menu-item { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; transition: var(--transition); border-bottom: 1px solid var(--border-light); }
     .menu-item:last-child { border-bottom: none; }
-    .menu-item .icon { font-size: 20px; margin-right: 12px; }
+    .menu-item:active { background: var(--bg); }
+    .menu-item .icon { font-size: 20px; margin-right: 14px; width: 24px; text-align: center; }
     .menu-item .text { flex: 1; font-size: 14px; font-weight: 500; }
-    .menu-item .arrow { color: var(--text-muted); font-size: 14px; }
-    .menu-item .value { font-size: 13px; color: var(--text-muted); margin-right: 8px; }
+    .menu-item .arrow { color: var(--text-muted); font-size: 16px; }
+    /* 弹窗 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal-sheet { background: var(--card); border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-height: 85vh; overflow-y: auto; padding: 24px; animation: slideUp 0.35s cubic-bezier(0.22,1,0.36,1); }
+    @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; text-align: center; }
+    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.9); background: rgba(0,0,0,0.85); color: white; padding: 14px 28px; border-radius: 12px; font-size: 14px; z-index: 999; display: none; }
+    .toast.show { display: block; animation: toastIn 0.3s ease forwards; }
+    @keyframes toastIn { from { transform: translate(-50%,-50%) scale(0.9); opacity: 0; } to { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
   </style>
 </head>
 <body>
-  <div class="toast" id="toast"></div>
+<div class="toast" id="toast"></div>
 
-  <!-- 登录 -->
-  <div class="page active" id="pageLogin">
-    <div class="login-page">
-      <div style="text-align:center;color:white;margin-bottom:30px;">
-        <div style="font-size:50px;margin-bottom:8px;">🎮</div>
-        <h1 style="font-size:24px;font-weight:800;">接单员工作台</h1>
-        <p style="font-size:13px;opacity:0.8;margin-top:4px;">三角洲护航 · 接单员端</p>
-      </div>
-      <div class="login-box">
-        <div class="form-group"><label class="form-label">手机号</label><input class="form-input" id="loginPhone" type="tel" placeholder="请输入手机号" maxlength="11"></div>
-        <div class="form-group"><label class="form-label">验证码</label><div style="display:flex;gap:10px;"><input class="form-input" id="loginCode" type="text" placeholder="验证码" maxlength="6" style="flex:1;"><button class="btn-sm btn-outline" onclick="sendCode()" style="padding:10px 16px;">发送</button></div><p style="font-size:11px;color:var(--text-muted);margin-top:6px;">测试: 任意手机号，验证码 123456</p></div>
-        <button class="btn-block primary" onclick="doLogin()">登 录</button>
-      </div>
+<!-- 登录 -->
+<div class="page active" id="pageLogin">
+  <div class="login-page">
+    <div class="login-logo">
+      <div class="icon">🎮</div>
+      <h1>接单员工作台</h1>
+      <p>三角洲护航 · 接单员端</p>
+    </div>
+    <div class="login-box">
+      <div class="form-group"><label class="form-label">手机号</label><input class="form-input" id="loginPhone" type="tel" placeholder="请输入手机号" maxlength="11"></div>
+      <div class="form-group"><label class="form-label">验证码</label><div style="display:flex;gap:10px;"><input class="form-input" id="loginCode" type="text" placeholder="验证码" maxlength="6" style="flex:1;"><button class="btn btn-outline" onclick="sendCode()" id="codeBtn">发送</button></div><p style="font-size:11px;color:var(--text-muted);margin-top:6px;">测试: 任意手机号，验证码 123456</p></div>
+      <button class="btn btn-primary btn-lg btn-block" onclick="doLogin()">登 录</button>
     </div>
   </div>
+</div>
 
-  <!-- 工作台 -->
-  <div class="page" id="pageWork">
-    <div class="status-bar"><h1>🎮 工作台</h1><div id="workStatus" style="font-size:12px;"></div></div>
-    <div class="stat-grid" id="playerStats"></div>
-    <div class="card">
-      <div class="card-title">📋 我的进行中订单</div>
-      <div id="activeOrders"></div>
+<!-- 工作台 -->
+<div class="page" id="pageWork">
+  <div class="topbar"><h1>🎮 工作台</h1><div id="workStatus" style="font-size:12px;"></div></div>
+  <div class="stat-grid" id="playerStats"></div>
+  <div style="padding:0 16px;">
+    <div class="card" style="margin-bottom:12px;"><div class="card-header"><h3>📋 进行中订单</h3></div><div class="card-body" id="activeOrders"></div></div>
+  </div>
+</div>
+
+<!-- 抢单大厅 -->
+<div class="page" id="pageGrab">
+  <div class="topbar"><h1>🔥 抢单大厅</h1><button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;" onclick="loadGrabOrders()">刷新</button></div>
+  <div style="padding:12px 0;" id="grabList"></div>
+</div>
+
+<!-- 订单记录 -->
+<div class="page" id="pageHistory">
+  <div class="topbar"><h1>📋 订单记录</h1></div>
+  <div style="padding:12px 0;" id="historyList"></div>
+</div>
+
+<!-- 我的 -->
+<div class="page" id="pageProfile">
+  <div class="profile-hero">
+    <div class="profile-avatar">🎮</div>
+    <div class="profile-name" id="pName">接单员</div>
+    <div class="profile-status" id="pStatus"></div>
+  </div>
+  <div class="earnings-card">
+    <div class="earnings-row">
+      <div class="earnings-item"><div class="value" id="pMonthIncome">¥0</div><div class="label">本月收入</div></div>
+      <div class="earnings-item"><div class="value" id="pWeekIncome">¥0</div><div class="label">本周收入</div></div>
     </div>
   </div>
-
-  <!-- 抢单大厅 -->
-  <div class="page" id="pageGrab">
-    <div class="status-bar"><h1>🔥 抢单大厅</h1><button class="btn-sm" style="background:rgba(255,255,255,0.2);color:white;" onclick="loadGrabOrders()">刷新</button></div>
-    <div style="padding:12px 0;" id="grabList"></div>
+  <div class="perf-grid">
+    <div class="perf-item"><div class="value" id="pTotalOrders">0</div><div class="label">完成单</div></div>
+    <div class="perf-item"><div class="value" id="pRating">5.0</div><div class="label">评分</div></div>
+    <div class="perf-item"><div class="value" id="pCompletion">100%</div><div class="label">完成率</div></div>
+    <div class="perf-item"><div class="value" id="pActive">0</div><div class="label">进行中</div></div>
   </div>
-
-  <!-- 订单记录 -->
-  <div class="page" id="pageHistory">
-    <div class="status-bar"><h1>📋 订单记录</h1></div>
-    <div style="padding:12px 0;" id="historyList"></div>
+  <div class="menu-group">
+    <div class="menu-item" onclick="showWithdrawModal()"><span class="icon">💰</span><span class="text">申请提现</span><span class="arrow">›</span></div>
+    <div class="menu-item"><span class="icon">📊</span><span class="text">收入明细</span><span class="arrow">›</span></div>
+    <div class="menu-item"><span class="icon">⚙️</span><span class="text">设置</span><span class="arrow">›</span></div>
   </div>
-
-  <!-- 我的 -->
-  <div class="page" id="pageProfile">
-    <div class="profile-header">
-      <div class="profile-avatar">🎮</div>
-      <div class="profile-name" id="pName">接单员</div>
-      <div style="font-size:12px;opacity:0.8;margin-top:4px;" id="pStatus"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:16px;">
-      <div class="stat-box"><div class="value" id="pTotalOrders">0</div><div class="label">完成订单</div></div>
-      <div class="stat-box"><div class="value" id="pTotalIncome">¥0</div><div class="label">累计收入</div></div>
-      <div class="stat-box"><div class="value" id="pRating">5.0</div><div class="label">评分</div></div>
-      <div class="stat-box"><div class="value" id="pActive">0</div><div class="label">进行中</div></div>
-    </div>
-    <div class="menu-group">
-      <div class="menu-item" onclick="showWithdrawModal()"><span class="icon">💰</span><span class="text">申请提现</span><span class="arrow">›</span></div>
-      <div class="menu-item"><span class="icon">📊</span><span class="text">收入明细</span><span class="arrow">›</span></div>
-      <div class="menu-item"><span class="icon">⚙️</span><span class="text">设置</span><span class="arrow">›</span></div>
-    </div>
-    <div class="menu-group">
-      <div class="menu-item" onclick="playerLogout()" style="justify-content:center;"><span class="text" style="color:var(--danger);">退出登录</span></div>
-    </div>
+  <div class="menu-group">
+    <div class="menu-item" onclick="playerLogout()" style="justify-content:center;"><span class="text" style="color:var(--danger);">退出登录</span></div>
   </div>
+</div>
 
-  <!-- 抢单确认弹窗 -->
-  <div class="modal-overlay" id="grabModal">
-    <div class="modal-sheet" id="grabDetail"></div>
+<!-- 弹窗：进度更新 -->
+<div class="modal-overlay" id="progressModal">
+  <div class="modal-sheet">
+    <div class="modal-title">📝 更新进度</div>
+    <div class="form-group"><label class="form-label">进度描述</label><textarea class="form-input" id="progressText" placeholder="描述当前进度..."></textarea></div>
+    <button class="btn btn-primary btn-lg btn-block" onclick="submitProgress()">提交进度</button>
+    <button class="btn btn-ghost btn-block" onclick="closeModal('progressModal')" style="margin-top:8px;">取消</button>
   </div>
+</div>
 
-  <!-- 进度更新弹窗 -->
-  <div class="modal-overlay" id="progressModal">
-    <div class="modal-sheet">
-      <div class="modal-title">📝 更新进度</div>
-      <div class="form-group"><label class="form-label">进度描述</label><textarea class="form-input" id="progressText" placeholder="描述当前进度..."></textarea></div>
-      <button class="btn-block primary" onclick="submitProgress()">提交进度</button>
-      <button class="btn-block" onclick="closeModal('progressModal')" style="margin-top:8px;background:var(--bg);color:var(--text-secondary);">取消</button>
-    </div>
+<!-- 弹窗：提现 -->
+<div class="modal-overlay" id="withdrawModal">
+  <div class="modal-sheet">
+    <div class="modal-title">💰 申请提现</div>
+    <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px;">可提现余额: <span id="withdrawBalance" style="font-weight:700;color:var(--primary);">¥0</span></p>
+    <div class="form-group"><input class="form-input" id="withdrawAmount" type="number" placeholder="输入提现金额" inputmode="decimal"></div>
+    <p style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">最低提现 ¥50，手续费 2%</p>
+    <button class="btn btn-primary btn-lg btn-block" onclick="doWithdraw()">提交申请</button>
+    <button class="btn btn-ghost btn-block" onclick="closeModal('withdrawModal')" style="margin-top:8px;">取消</button>
   </div>
+</div>
 
-  <!-- 提现弹窗 -->
-  <div class="modal-overlay" id="withdrawModal">
-    <div class="modal-sheet">
-      <div class="modal-title">💰 申请提现</div>
-      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px;">可提现余额: <span id="withdrawBalance">¥0</span></p>
-      <div class="form-group"><input class="form-input" id="withdrawAmount" type="number" placeholder="输入提现金额"></div>
-      <p style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">最低提现 ¥50，手续费 2%</p>
-      <button class="btn-block primary" onclick="doWithdraw()">提交申请</button>
-      <button class="btn-block" onclick="closeModal('withdrawModal')" style="margin-top:8px;background:var(--bg);color:var(--text-secondary);">取消</button>
-    </div>
+<!-- 底部导航 -->
+<div class="tab-bar" id="tabBar" style="display:none;">
+  <div class="tab-item active" data-tab="work" onclick="switchTab('work')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+    工作台
   </div>
-
-  <!-- 底部导航 -->
-  <div class="tab-bar" id="tabBar" style="display:none;">
-    <div class="tab-item active" data-tab="work" onclick="switchTab('work')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
-      工作台
-    </div>
-    <div class="tab-item" data-tab="grab" onclick="switchTab('grab')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      抢单
-    </div>
-    <div class="tab-item" data-tab="history" onclick="switchTab('history')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-      记录
-    </div>
-    <div class="tab-item" data-tab="profile" onclick="switchTab('profile')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      我的
-    </div>
+  <div class="tab-item" data-tab="grab" onclick="switchTab('grab')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    抢单
   </div>
+  <div class="tab-item" data-tab="history" onclick="switchTab('history')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    记录
+  </div>
+  <div class="tab-item" data-tab="profile" onclick="switchTab('profile')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    我的
+  </div>
+</div>
 
-  <script>
-    const API = '/api';
-    let token = localStorage.getItem('delta_player_token');
-    let playerInfo = null;
-    let currentProgressOrderId = null;
-    let userBalance = 0;
+<script>
+const API='/api';let token=localStorage.getItem('delta_player_token'),playerInfo=null,currentProgressOrderId=null,userBalance=0,ws=null;
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.remove('show');void t.offsetWidth;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+async function api(p,o={}){const h={'Content-Type':'application/json'};if(token)h['Authorization']=`Bearer ${token}`;try{const r=await fetch(API+p,{...o,headers:h});if(r.status===401){playerLogout();return{code:401};}return await r.json();}catch(e){showToast('网络错误');return{code:-1};}}
+function formatPrice(p){return'¥'+Number(p).toFixed(2);}
+function closeModal(id){document.getElementById(id).classList.remove('active');}
+const sMap={ASSIGNED:'已接单',IN_PROGRESS:'进行中',COMPLETED:'已完成',REVIEWING:'评价中'};
 
-    function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
-    async function api(path, opts = {}) {
-      const h = { 'Content-Type': 'application/json' };
-      if (token) h['Authorization'] = `Bearer ${token}`;
-      const r = await fetch(API + path, { ...opts, headers: h });
-      return r.json();
-    }
-    function formatPrice(p) { return '¥' + Number(p).toFixed(2); }
-    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-    const sMap = { ASSIGNED:'已接单', IN_PROGRESS:'进行中', COMPLETED:'已完成' };
+function connectWS(){if(!token||ws)return;try{ws=new WebSocket(`ws://${location.host}/ws?token=${token}`);ws.onmessage=(e)=>{const msg=JSON.parse(e.data);if(msg.type==='new_order')showToast(`🆕 新订单: ${msg.title} ¥${msg.amount}`);if(msg.type==='order_progress')showToast(`📋 ${msg.progress}`);};ws.onclose=()=>{ws=null;setTimeout(connectWS,5000);};ws.onerror=()=>{ws=null;};}catch(e){}}
 
-    // 登录
-    function sendCode() { showToast('验证码已发送（测试: 123456）'); }
-    async function doLogin() {
-      const phone = document.getElementById('loginPhone').value;
-      const code = document.getElementById('loginCode').value;
-      if (!phone || !code) return showToast('请填写完整');
-      const res = await api('/user/login', { method: 'POST', body: JSON.stringify({ phone, code }) });
-      if (res.code === 0) {
-        token = res.data.token;
-        localStorage.setItem('delta_player_token', token);
-        enterApp();
-      } else { showToast(res.msg); }
-    }
-    function playerLogout() { token = null; localStorage.removeItem('delta_player_token'); document.getElementById('tabBar').style.display = 'none'; document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('pageLogin').classList.add('active'); }
+function sendCode(){showToast('验证码已发送（测试: 123456）');let sec=60;const btn=document.getElementById('codeBtn');btn.disabled=true;const timer=setInterval(()=>{btn.textContent=`${--sec}s`;if(sec<=0){clearInterval(timer);btn.textContent='发送';btn.disabled=false;}},1000);}
+async function doLogin(){const phone=document.getElementById('loginPhone').value,code=document.getElementById('loginCode').value;if(!phone||!code)return showToast('请填写完整');const r=await api('/user/login',{method:'POST',body:JSON.stringify({phone,code})});if(r.code===0){token=r.data.token;localStorage.setItem('delta_player_token',token);enterApp();}else showToast(r.msg);}
+function playerLogout(){token=null;ws?.close();ws=null;localStorage.removeItem('delta_player_token');document.getElementById('tabBar').style.display='none';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('pageLogin').classList.add('active');}
 
-    async function enterApp() {
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.getElementById('tabBar').style.display = 'flex';
-      // 检查是否是接单员
-      const pRes = await api('/player/profile');
-      if (pRes.code === 0) {
-        playerInfo = pRes.data;
-        document.getElementById('pName').textContent = playerInfo.real_name || playerInfo.nickname || '接单员';
-        document.getElementById('pStatus').textContent = playerInfo.status === 'APPROVED' ? '✅ 已认证' : playerInfo.status === 'PENDING' ? '⏳ 审核中' : '❌ 未通过';
-        switchTab('work');
-      } else {
-        // 需要申请
-        switchTab('profile');
-        showToast('请先申请成为接单员');
-      }
-      loadProfile();
-    }
+async function enterApp(){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('tabBar').style.display='flex';const pRes=await api('/player/profile');if(pRes.code===0){playerInfo=pRes.data;document.getElementById('pName').textContent=playerInfo.real_name||playerInfo.nickname||'接单员';document.getElementById('pStatus').textContent=playerInfo.status==='APPROVED'?'✅ 已认证':playerInfo.status==='PENDING'?'⏳ 审核中':'❌ 未通过';switchTab('work');}else{switchTab('profile');showToast('请先申请成为接单员');}loadProfile();connectWS();}
 
-    function switchTab(tab) {
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-      const map = { work:'pageWork', grab:'pageGrab', history:'pageHistory', profile:'pageProfile' };
-      document.getElementById(map[tab]).classList.add('active');
-      document.querySelector(`.tab-item[data-tab="${tab}"]`).classList.add('active');
-      if (tab === 'work') loadWorkbench();
-      if (tab === 'grab') loadGrabOrders();
-      if (tab === 'history') loadHistory();
-      if (tab === 'profile') loadProfile();
-    }
+function switchTab(tab){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active'));const map={work:'pageWork',grab:'pageGrab',history:'pageHistory',profile:'pageProfile'};document.getElementById(map[tab]).classList.add('active');document.querySelector(`.tab-item[data-tab="${tab}"]`).classList.add('active');if(tab==='work')loadWorkbench();if(tab==='grab')loadGrabOrders();if(tab==='history')loadHistory();if(tab==='profile')loadProfile();}
 
-    // 工作台
-    async function loadWorkbench() {
-      if (!playerInfo) return;
-      document.getElementById('workStatus').textContent = playerInfo.online_status ? '🟢 在线' : '🔴 离线';
-      document.getElementById('playerStats').innerHTML = `
-        <div class="stat-box"><div class="value">${playerInfo.active_orders}</div><div class="label">进行中</div></div>
-        <div class="stat-box"><div class="value">${playerInfo.total_orders}</div><div class="label">已完成</div></div>
-        <div class="stat-box"><div class="value">⭐${playerInfo.rating}</div><div class="label">评分</div></div>
-      `;
-      // 进行中订单
-      const res = await api('/player/orders?status=ASSIGNED');
-      const res2 = await api('/player/orders?status=IN_PROGRESS');
-      const orders = [...(res.data || []), ...(res2.data || [])];
-      document.getElementById('activeOrders').innerHTML = orders.length === 0
-        ? '<div class="empty-state" style="padding:20px;"><div class="emoji">😴</div><div class="text">暂无进行中订单</div></div>'
-        : orders.map(o => `
-          <div class="order-card" style="margin:0 0 10px;">
-            <div class="order-header"><span class="order-no">${o.order_no}</span><span class="order-status s-${o.order_status}">${sMap[o.order_status]}</span></div>
-            <div class="order-product">${o.product_title}</div>
-            <div class="order-info">用户: ${o.user_nickname} · ${o.game_info || '无备注'}</div>
-            <div class="order-footer"><div class="order-amount">${formatPrice(o.total_amount)}</div>
-              <div style="display:flex;gap:8px;">
-                <button class="btn-sm btn-outline" onclick="showProgressModal(${o.id})">更新进度</button>
-                <button class="btn-sm btn-primary" onclick="completeOrder(${o.id})">完成</button>
-              </div>
-            </div>
-          </div>
-        `).join('');
-    }
-
-    // 抢单大厅
-    async function loadGrabOrders() {
-      const res = await api('/player/grab-orders');
-      const list = document.getElementById('grabList');
-      if (res.code !== 0) { list.innerHTML = `<div class="empty-state"><div class="emoji">🔒</div><div class="text">${res.msg || '暂无可抢单'}</div></div>`; return; }
-      if (res.data.length === 0) { list.innerHTML = '<div class="empty-state"><div class="emoji">📭</div><div class="text">暂无可抢单，稍后再来</div></div>'; return; }
-      list.innerHTML = res.data.map(o => `
-        <div class="grab-card">
-          <div class="grab-header"><span class="grab-title">${o.product_title}</span><span class="grab-amount">${formatPrice(o.total_amount)}</span></div>
-          <div class="grab-info">订单号: ${o.order_no} · 用户: ${o.user_nickname} · ${o.game_info || '无备注'} · ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
-          <button class="grab-btn" onclick="grabOrder(${o.id})">立即抢单</button>
+async function loadWorkbench(){
+  if(!playerInfo)return;
+  document.getElementById('workStatus').textContent=playerInfo.online_status?'🟢 在线':'🔴 离线';
+  const statsRes=await api('/player/stats');
+  const stats=statsRes.code===0?statsRes.data:{todayOrders:0,todayIncome:0,totalOrders:playerInfo.total_orders,totalIncome:playerInfo.total_income,activeOrders:playerInfo.active_orders,avgRating:playerInfo.rating,completionRate:100};
+  document.getElementById('playerStats').innerHTML=`
+    <div class="stat-box"><div class="value">${stats.activeOrders}</div><div class="label">进行中</div></div>
+    <div class="stat-box"><div class="value">${stats.todayOrders}</div><div class="label">今日完成</div></div>
+    <div class="stat-box"><div class="value">${formatPrice(stats.todayIncome)}</div><div class="label">今日收入</div></div>`;
+  const r1=await api('/player/orders?status=ASSIGNED'),r2=await api('/player/orders?status=IN_PROGRESS');
+  const orders=[...(r1.data||[]),...(r2.data||[])];
+  document.getElementById('activeOrders').innerHTML=orders.length===0?'<div class="empty-state" style="padding:24px;"><div class="emoji">😴</div><div class="title">暂无进行中订单</div><div class="desc">去抢单大厅看看吧</div></div>':orders.map(o=>`
+    <div class="order-card" style="margin:0 0 10px;">
+      <div class="order-header"><span class="order-no">${o.order_no}</span><span class="order-status s-${o.order_status}">${sMap[o.order_status]}</span></div>
+      <div class="order-title">${o.product_title}</div>
+      <div class="order-info">用户: ${o.user_nickname} · ${o.game_info||'无备注'}</div>
+      ${o.progress?`<div style="font-size:12px;color:var(--primary);margin-bottom:8px;">📌 ${o.progress}</div>`:''}
+      <div class="order-footer"><div class="order-amount">${formatPrice(o.total_amount)}</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="showProgressModal(${o.id})">更新进度</button>
+          <button class="btn btn-primary btn-sm" onclick="completeOrder(${o.id})">完成</button>
         </div>
-      `).join('');
-    }
+      </div>
+    </div>`).join('');}
 
-    async function grabOrder(id) {
-      const res = await api(`/player/grab/${id}`, { method: 'POST' });
-      showToast(res.msg);
-      if (res.code === 0) { loadGrabOrders(); loadWorkbench(); }
-    }
+async function loadGrabOrders(){const r=await api('/player/grab-orders');const list=document.getElementById('grabList');if(r.code!==0){list.innerHTML=`<div class="empty-state"><div class="emoji">🔒</div><div class="title">${r.msg||'暂无可抢单'}</div></div>`;return;}if(!r.data.length){list.innerHTML='<div class="empty-state"><div class="emoji">📭</div><div class="title">暂无可抢单</div><div class="desc">稍后再来刷新看看</div></div>';return;}list.innerHTML=r.data.map(o=>`
+    <div class="grab-card">
+      <div class="grab-header"><span class="grab-title">${o.product_title}</span><span class="grab-amount">${formatPrice(o.total_amount)}</span></div>
+      <div class="grab-info">订单号: ${o.order_no}<br>用户: ${o.user_nickname} · ${o.game_info||'无备注'}<br>${new Date(o.created_at).toLocaleString('zh-CN')}</div>
+      <button class="grab-btn" onclick="grabOrder(${o.id})">立即抢单</button>
+    </div>`).join('');}
 
-    // 订单记录
-    async function loadHistory() {
-      const res = await api('/player/orders');
-      const list = document.getElementById('historyList');
-      if (res.code !== 0 || res.data.length === 0) { list.innerHTML = '<div class="empty-state"><div class="emoji">📋</div><div class="text">暂无订单记录</div></div>'; return; }
-      list.innerHTML = res.data.map(o => `
-        <div class="order-card" style="margin:0 16px 12px;">
-          <div class="order-header"><span class="order-no">${o.order_no}</span><span class="order-status s-${o.order_status}">${sMap[o.order_status] || o.order_status}</span></div>
-          <div class="order-product">${o.product_title}</div>
-          <div class="order-info">用户: ${o.user_nickname} · ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
-          <div class="order-footer"><div class="order-amount">${formatPrice(o.total_amount)}</div></div>
-        </div>
-      `).join('');
-    }
+async function grabOrder(id){const r=await api(`/player/grab/${id}`,{method:'POST'});showToast(r.msg);if(r.code===0){loadGrabOrders();loadWorkbench();}}
 
-    // 更新进度
-    function showProgressModal(orderId) { currentProgressOrderId = orderId; document.getElementById('progressText').value = ''; document.getElementById('progressModal').classList.add('active'); }
-    async function submitProgress() {
-      const progress = document.getElementById('progressText').value;
-      if (!progress) return showToast('请输入进度描述');
-      const res = await api(`/player/orders/${currentProgressOrderId}/progress`, { method: 'POST', body: JSON.stringify({ progress }) });
-      showToast(res.msg);
-      if (res.code === 0) { closeModal('progressModal'); loadWorkbench(); }
-    }
+async function loadHistory(){const r=await api('/player/orders');const list=document.getElementById('historyList');if(r.code!==0||!r.data.length){list.innerHTML='<div class="empty-state"><div class="emoji">📋</div><div class="title">暂无订单记录</div></div>';return;}list.innerHTML=r.data.map(o=>`
+    <div class="order-card">
+      <div class="order-header"><span class="order-no">${o.order_no}</span><span class="order-status s-${o.order_status}">${sMap[o.order_status]||o.order_status}</span></div>
+      <div class="order-title">${o.product_title}</div>
+      <div class="order-info">用户: ${o.user_nickname} · ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
+      <div class="order-footer"><div class="order-amount">${formatPrice(o.total_amount)}</div></div>
+    </div>`).join('');}
 
-    // 完成订单
-    async function completeOrder(id) {
-      if (!confirm('确认完成此订单？')) return;
-      const res = await api(`/player/orders/${id}/complete`, { method: 'POST' });
-      showToast(res.msg);
-      if (res.code === 0) { loadWorkbench(); loadProfile(); }
-    }
+function showProgressModal(orderId){currentProgressOrderId=orderId;document.getElementById('progressText').value='';document.getElementById('progressModal').classList.add('active');}
+async function submitProgress(){const p=document.getElementById('progressText').value;if(!p)return showToast('请输入进度');const r=await api(`/player/orders/${currentProgressOrderId}/progress`,{method:'POST',body:JSON.stringify({progress:p})});showToast(r.msg);if(r.code===0){closeModal('progressModal');loadWorkbench();}}
+async function completeOrder(id){if(!confirm('确认完成此订单？'))return;const r=await api(`/player/orders/${id}/complete`,{method:'POST'});showToast(r.msg);if(r.code===0){loadWorkbench();loadProfile();}}
 
-    // 个人中心
-    async function loadProfile() {
-      const pRes = await api('/player/profile');
-      if (pRes.code === 0) {
-        playerInfo = pRes.data;
-        document.getElementById('pTotalOrders').textContent = playerInfo.total_orders;
-        document.getElementById('pTotalIncome').formatPrice && (document.getElementById('pTotalIncome').textContent = formatPrice(playerInfo.total_income));
-        document.getElementById('pTotalIncome').textContent = formatPrice(playerInfo.total_income);
-        document.getElementById('pRating').textContent = '⭐' + playerInfo.rating;
-        document.getElementById('pActive').textContent = playerInfo.active_orders;
-      }
-      // 用户余额
-      const uRes = await api('/user/profile');
-      if (uRes.code === 0) { userBalance = uRes.data.balance; document.getElementById('withdrawBalance').textContent = formatPrice(userBalance); }
-    }
+async function loadProfile(){
+  const pRes=await api('/player/profile');
+  if(pRes.code===0){playerInfo=pRes.data;document.getElementById('pName').textContent=playerInfo.real_name||playerInfo.nickname||'接单员';document.getElementById('pStatus').textContent=playerInfo.status==='APPROVED'?'✅ 已认证':playerInfo.status==='PENDING'?'⏳ 审核中':'❌ 未通过';}
+  const statsRes=await api('/player/stats');
+  if(statsRes.code===0){const s=statsRes.data;document.getElementById('pTotalOrders').textContent=s.totalOrders;document.getElementById('pMonthIncome').textContent=formatPrice(s.monthIncome);document.getElementById('pWeekIncome').textContent=formatPrice(s.weekIncome);document.getElementById('pRating').textContent='⭐'+s.avgRating;document.getElementById('pCompletion').textContent=s.completionRate+'%';document.getElementById('pActive').textContent=s.activeOrders;}
+  const uRes=await api('/user/profile');
+  if(uRes.code===0){userBalance=uRes.data.balance;document.getElementById('withdrawBalance').textContent=formatPrice(userBalance);}
+}
 
-    // 提现
-    function showWithdrawModal() { document.getElementById('withdrawAmount').value = ''; document.getElementById('withdrawModal').classList.add('active'); }
-    async function doWithdraw() {
-      const amount = Number(document.getElementById('withdrawAmount').value);
-      if (!amount) return showToast('请输入金额');
-      const res = await api('/player/withdraw', { method: 'POST', body: JSON.stringify({ amount }) });
-      showToast(res.msg);
-      if (res.code === 0) { closeModal('withdrawModal'); loadProfile(); }
-    }
+function showWithdrawModal(){document.getElementById('withdrawAmount').value='';document.getElementById('withdrawModal').classList.add('active');}
+async function doWithdraw(){const a=Number(document.getElementById('withdrawAmount').value);if(!a)return showToast('请输入金额');const r=await api('/player/withdraw',{method:'POST',body:JSON.stringify({amount:a})});showToast(r.msg);if(r.code===0){closeModal('withdrawModal');loadProfile();}}
 
-    // 初始化
-    (async () => {
-      if (token) {
-        try {
-          const res = await api('/user/profile');
-          if (res.code === 0) enterApp(); else { token = null; localStorage.removeItem('delta_player_token'); }
-        } catch (e) { token = null; }
-      }
-    })();
-  </script>
+(async()=>{if(token){try{const r=await api('/user/profile');if(r.code===0)enterApp();else{token=null;localStorage.removeItem('delta_player_token');}}catch(e){token=null;}}})();
+</script>
 </body>
 </html>
