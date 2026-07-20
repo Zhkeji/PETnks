@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: delta-escort
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/backups
+      - ./uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - JWT_SECRET=${JWT_SECRET:-delta-escort-secret-key-2026}
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/alive"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # 可选：Redis 缓存
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: always
+
+  # 可选：MySQL
+  # mysql:
+  #   image: mysql:8.0
+  #   ports:
+  #     - "3306:3306"
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-delta123}
+  #     MYSQL_DATABASE: delta_escort
+  #   volumes:
+  #     - mysql-data:/var/lib/mysql
+  #     - ./migrations/001_init_mysql.sql:/docker-entrypoint-initdb.d/init.sql
+  #   restart: always
+
+# volumes:
+#   redis-data:
+#   mysql-data:

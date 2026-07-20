@@ -170,3 +170,50 @@ select.form-input { cursor: pointer; appearance: none; background-image: url("da
 @media (min-width: 768px) {
   .modal-sheet { max-width: 600px; }
 }
+
+/* ═══ 暗黑模式 ═══ */
+[data-theme="dark"] {
+  --bg: #0F0F14;
+  --card: #1A1A24;
+  --text: #E8E8ED;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+  --border: #2D2D3A;
+  --border-light: #22222E;
+  --primary-light: rgba(255,107,53,0.12);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow: 0 2px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
+  --success-light: rgba(16,185,129,0.12);
+  --warning-light: rgba(245,158,11,0.12);
+  --danger-light: rgba(239,68,68,0.12);
+  --info-light: rgba(59,130,246,0.12);
+}
+[data-theme="dark"] .tab-bar { background: rgba(26,26,36,0.92); }
+[data-theme="dark"] .topbar { background: linear-gradient(135deg, #1A1A24, #22222E); }
+[data-theme="dark"] .skeleton { background: linear-gradient(90deg, #22222E 25%, #2D2D3A 50%, #22222E 75%); }
+[data-theme="dark"] .modal-sheet,
+[data-theme="dark"] .modal-box,
+[data-theme="dark"] .modal-content { background: var(--card); }
+[data-theme="dark"] .toast { background: rgba(255,255,255,0.9); color: #111; }
+
+/* 主题切换按钮 */
+.theme-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  font-size: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+.theme-toggle:hover { transform: scale(1.1); }

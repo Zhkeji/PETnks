@@ -1,0 +1,142 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "三角洲护航 SaaS API",
+    "description": "专业游戏代练护航服务平台 API 文档",
+    "version": "2.3.0",
+    "contact": { "name": "Zhkeji", "url": "https://github.com/Zhkeji/PETnks" }
+  },
+  "servers": [{ "url": "http://localhost:3001", "description": "本地开发" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "phone": { "type": "string" },
+          "nickname": { "type": "string" },
+          "balance": { "type": "number" },
+          "invite_code": { "type": "string" }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "order_no": { "type": "string" },
+          "product_title": { "type": "string" },
+          "total_amount": { "type": "number" },
+          "order_status": { "type": "string", "enum": ["PENDING","PAID","ASSIGNED","IN_PROGRESS","COMPLETED","REVIEWING","REFUNDING","REFUNDED","CANCELLED"] }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "price": { "type": "number" },
+          "category_name": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/user/login": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "用户登录",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phone", "code"],
+                "properties": {
+                  "phone": { "type": "string", "example": "13800138000" },
+                  "code": { "type": "string", "example": "123456" },
+                  "invite_code": { "type": "string", "description": "邀请码(可选)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "成功", "content": { "application/json": { "schema": { "type": "object", "properties": { "code": { "type": "integer" }, "data": { "type": "object" } } } } } } }
+      }
+    },
+    "/api/admin/login": {
+      "post": {
+        "tags": ["认证"],
+        "summary": "管理员登录",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "admin" },
+                  "password": { "type": "string", "example": "admin123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/categories": {
+      "get": { "tags": ["公共"], "summary": "获取分类列表", "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/products": {
+      "get": {
+        "tags": ["公共"],
+        "summary": "获取商品列表",
+        "parameters": [
+          { "name": "category_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "hot", "in": "query", "schema": { "type": "string" } },
+          { "name": "keyword", "in": "query", "schema": { "type": "string" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["sort_order","sales","price_asc","price_desc","new"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/products/{id}": {
+      "get": { "tags": ["公共"], "summary": "商品详情", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/orders": {
+      "post": { "tags": ["订单"], "summary": "创建订单", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/orders/{id}/pay": {
+      "post": { "tags": ["订单"], "summary": "支付订单", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/user/orders": {
+      "get": { "tags": ["订单"], "summary": "我的订单", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/player/grab-orders": {
+      "get": { "tags": ["接单员"], "summary": "可抢单列表", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/player/grab/{id}": {
+      "post": { "tags": ["接单员"], "summary": "抢单", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/admin/dashboard": {
+      "get": { "tags": ["管理后台"], "summary": "仪表盘", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/admin/orders": {
+      "get": { "tags": ["管理后台"], "summary": "订单管理", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/admin/search": {
+      "get": { "tags": ["管理后台"], "summary": "全局搜索", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/health": {
+      "get": { "tags": ["系统"], "summary": "健康检查", "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/sms/send": {
+      "post": { "tags": ["系统"], "summary": "发送短信验证码", "responses": { "200": { "description": "成功" } } }
+    }
+  }
+}

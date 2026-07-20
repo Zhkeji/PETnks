@@ -16,6 +16,7 @@ const UploadService = require('./modules/upload');
 const HealthCheck = require('./modules/health');
 const BackupService = require('./modules/backup');
 const InviteService = require('./modules/invite');
+const AICustomerService = require('./modules/ai-service');
 const { requirePermission, getAllPermissions, getAllRoles } = require('./modules/rbac');
 
 const app = express();
@@ -101,6 +102,8 @@ db.exec(`
     balance REAL DEFAULT 0,
     total_spent REAL DEFAULT 0,
     order_count INTEGER DEFAULT 0,
+    invite_code TEXT UNIQUE,
+    invited_by INTEGER,
     status INTEGER DEFAULT 1,
     last_login_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -308,6 +311,26 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS sms_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT NOT NULL,
+    code TEXT NOT NULL,
+    type TEXT DEFAULT 'LOGIN',
+    used INTEGER DEFAULT 0,
+    expire_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS invite_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inviter_id INTEGER REFERENCES users(id),
+    invitee_id INTEGER REFERENCES users(id),
+    invite_code TEXT NOT NULL,
+    commission REAL DEFAULT 0,
+    status INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- 索引
   CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
   CREATE INDEX IF NOT EXISTS idx_orders_player ON orders(player_id);
@@ -410,6 +433,7 @@ const upload = new UploadService({ uploadPath: path.join(__dirname, 'uploads'), 
 const health = new HealthCheck(db);
 const backup = new BackupService(path.join(__dirname, 'delta.db'), path.join(__dirname, 'backups'));
 const invite = new InviteService(db);
+const aiService = new AICustomerService(db, { enabled: false, provider: 'keyword' });
 
 // multer 配置
 const uploadMiddleware = multer({
@@ -1439,6 +1463,23 @@ app.post('/api/upload/:category', authMiddleware(['USER', 'ADMIN', 'CS', 'BOTH']
 
 // 静态文件服务（上传文件）
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ── API 文档 ─────────────────────────────────────────────
+app.get('/api/docs', (req, res) => {
+  const spec = require('./docs/swagger.json');
+  res.json(spec);
+});
+app.get('/docs', (req, res) => {
+  res.send(`<!DOCTYPE html><html><head><title>API 文档</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'/api/docs',dom_id:'#swagger-ui'})</script></body></html>`);
+});
+
+// ── AI 客服 ──────────────────────────────────────────────
+app.post('/api/chat/ai', authMiddleware(['USER']), async (req, res) => {
+  const { message } = req.body;
+  if (!message) return res.json({ code: 400, msg: '请输入消息' });
+  const reply = await aiService.chat(null, req.user.id, message);
+  res.json({ code: 0, data: { reply } });
+});
 
 // ── 健康检查 ─────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json(health.check()));
