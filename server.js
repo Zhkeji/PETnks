@@ -938,12 +938,18 @@ app.get('/api/player/stats', authMiddleware(['USER']), (req, res) => {
 
 // ── 管理后台 API ─────────────────────────────────────────
 app.get('/api/admin/dashboard', authMiddleware(['ADMIN', 'CS', 'BOTH']), (req, res) => {
+  const { start_date, end_date } = req.query;
+  let dateFilter = '';
+  const dateParams = [];
+  if (start_date) { dateFilter += ' AND created_at >= ?'; dateParams.push(start_date); }
+  if (end_date) { dateFilter += ' AND created_at <= ?'; dateParams.push(end_date + ' 23:59:59'); }
+
   const stats = {
     totalUsers: db.prepare('SELECT COUNT(*) as c FROM users').get().c,
     totalPlayers: db.prepare("SELECT COUNT(*) as c FROM players WHERE status = 'APPROVED'").get().c,
-    totalOrders: db.prepare('SELECT COUNT(*) as c FROM orders').get().c,
+    totalOrders: db.prepare(`SELECT COUNT(*) as c FROM orders WHERE 1=1${dateFilter}`).get(...dateParams).c,
     todayOrders: db.prepare("SELECT COUNT(*) as c FROM orders WHERE DATE(created_at) = DATE('now')").get().c,
-    totalRevenue: db.prepare("SELECT COALESCE(SUM(total_amount), 0) as s FROM orders WHERE pay_status = 1").get().s,
+    totalRevenue: db.prepare(`SELECT COALESCE(SUM(total_amount), 0) as s FROM orders WHERE pay_status = 1${dateFilter}`).get(...dateParams).s,
     todayRevenue: db.prepare("SELECT COALESCE(SUM(total_amount), 0) as s FROM orders WHERE pay_status = 1 AND DATE(pay_time) = DATE('now')").get().s,
     pendingOrders: db.prepare("SELECT COUNT(*) as c FROM orders WHERE order_status = 'PAID'").get().c,
     activeOrders: db.prepare("SELECT COUNT(*) as c FROM orders WHERE order_status IN ('ASSIGNED','IN_PROGRESS')").get().c,
@@ -952,6 +958,11 @@ app.get('/api/admin/dashboard', authMiddleware(['ADMIN', 'CS', 'BOTH']), (req, r
     pendingPlayers: db.prepare("SELECT COUNT(*) as c FROM players WHERE status = 'PENDING'").get().c,
     pendingWithdrawals: db.prepare("SELECT COUNT(*) as c FROM withdrawals WHERE status = 'PENDING'").get().c,
     onlinePlayers: db.prepare("SELECT COUNT(*) as c FROM players WHERE online_status = 1 AND status = 'APPROVED'").get().c,
+    // 利润分析
+    platformCommission: db.prepare(`SELECT COALESCE(SUM(total_amount - total_amount * COALESCE((SELECT player_commission_rate FROM products WHERE id = orders.product_id), 0.7)), 0) as s FROM orders WHERE order_status IN ('COMPLETED','REVIEWING')${dateFilter}`).get(...dateParams).s,
+    playerCommission: db.prepare(`SELECT COALESCE(SUM(total_amount * COALESCE((SELECT player_commission_rate FROM products WHERE id = orders.product_id), 0.7)), 0) as s FROM orders WHERE order_status IN ('COMPLETED','REVIEWING')${dateFilter}`).get(...dateParams).s,
+    totalWithdrawals: db.prepare(`SELECT COALESCE(SUM(amount), 0) as s FROM withdrawals WHERE status IN ('APPROVED','PAID')${dateFilter.replace('created_at','processed_at')}`).get(...dateParams).s,
+    totalRecharges: db.prepare(`SELECT COALESCE(SUM(amount), 0) as s FROM transactions WHERE type = 'RECHARGE'${dateFilter}`).get(...dateParams).s,
   };
 
   // 最近7天收入趋势
@@ -969,11 +980,13 @@ app.get('/api/admin/dashboard', authMiddleware(['ADMIN', 'CS', 'BOTH']), (req, r
   `).all();
 
   // 热门商品
-  const hotProducts = db.prepare(`
-    SELECT title, sales, price FROM products WHERE status = 1 ORDER BY sales DESC LIMIT 5
-  `).all();
+  const hotProducts = db.prepare(`SELECT title, sales, price, player_commission_rate FROM products WHERE status = 1 ORDER BY sales DESC LIMIT 5`).all();
 
-  res.json({ code: 0, data: { stats, revenueChart, recentOrders, hotProducts } });
+  // 今日新增
+  const todayNewUsers = db.prepare("SELECT COUNT(*) as c FROM users WHERE DATE(created_at) = DATE('now')").get().c;
+  const todayNewPlayers = db.prepare("SELECT COUNT(*) as c FROM players WHERE DATE(created_at) = DATE('now')").get().c;
+
+  res.json({ code: 0, data: { stats: { ...stats, todayNewUsers, todayNewPlayers }, revenueChart, recentOrders, hotProducts } });
 });
 
 // 管理员 - 订单管理
@@ -1207,6 +1220,152 @@ app.get('/api/admin/logs', authMiddleware(['ADMIN', 'BOTH']), (req, res) => {
   const { page = 1, limit = 50 } = req.query;
   const sql = 'SELECT * FROM activity_logs ORDER BY created_at DESC';
   res.json({ code: 0, ...paginate(sql, [], page, limit) });
+});
+
+// 管理员 - 批量操作
+app.post('/api/admin/orders/batch', authMiddleware(['ADMIN', 'BOTH']), (req, res) => {
+  const { action, order_ids, player_id } = req.body;
+  if (!Array.isArray(order_ids) || !order_ids.length) return res.json({ code: 400, msg: '请选择订单' });
+
+  const results = { success: 0, failed: 0, errors: [] };
+  const process = db.transaction(() => {
+    order_ids.forEach(id => {
+      try {
+        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+        if (!order) { results.failed++; results.errors.push(`${id}:不存在`); return; }
+
+        if (action === 'assign' && player_id && order.order_status === 'PAID') {
+          const player = db.prepare("SELECT * FROM players WHERE id = ? AND status = 'APPROVED'").get(player_id);
+          if (player && player.active_orders < player.max_concurrent) {
+            db.prepare("UPDATE orders SET player_id = ?, order_status = 'ASSIGNED', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(player_id, id);
+            db.prepare('UPDATE players SET active_orders = active_orders + 1 WHERE id = ?').run(player_id);
+            addTimeline(id, 'ASSIGNED', `批量派单给 ${player.real_name}`, 'ADMIN', req.user.id);
+            results.success++;
+          } else { results.failed++; results.errors.push(`${id}:接单员不可用`); }
+        } else if (action === 'refund_approve' && order.order_status === 'REFUNDING') {
+          const user = db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id);
+          const newBalance = Math.round((user.balance + order.total_amount) * 100) / 100;
+          db.prepare('UPDATE users SET balance = ? WHERE id = ?').run(newBalance, order.user_id);
+          db.prepare('INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, order_id, remark) VALUES (?,?,?,?,?,?,?)').run(
+            order.user_id, 'REFUND', order.total_amount, user.balance, newBalance, order.id, `批量退款 ${order.order_no}`
+          );
+          db.prepare("UPDATE orders SET order_status = 'REFUNDED', refund_time = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+          if (order.player_id) db.prepare('UPDATE players SET active_orders = MAX(0, active_orders - 1) WHERE id = ?').run(order.player_id);
+          addTimeline(id, 'REFUNDED', '批量退款批准', 'ADMIN', req.user.id);
+          results.success++;
+        } else if (action === 'cancel' && ['PENDING','PAID'].includes(order.order_status)) {
+          if (order.pay_status === 1) {
+            const user = db.prepare('SELECT balance FROM users WHERE id = ?').get(order.user_id);
+            db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(order.total_amount, order.user_id);
+          }
+          db.prepare("UPDATE orders SET order_status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+          results.success++;
+        } else {
+          results.failed++;
+          results.errors.push(`${id}:状态不匹配`);
+        }
+      } catch (e) { results.failed++; results.errors.push(`${id}:${e.message}`); }
+    });
+  });
+  process();
+  logActivity(req.user.id, 'admin', `BATCH_${action.toUpperCase()}`, 'order', null, `${results.success}成功 ${results.failed}失败`);
+  res.json({ code: 0, data: results, msg: `批量操作完成: ${results.success}成功, ${results.failed}失败` });
+});
+
+// 管理员 - 批量审核提现
+app.post('/api/admin/withdrawals/batch', authMiddleware(['ADMIN', 'BOTH']), (req, res) => {
+  const { action, ids } = req.body;
+  if (!Array.isArray(ids) || !ids.length) return res.json({ code: 400, msg: '请选择记录' });
+  let success = 0;
+  ids.forEach(id => {
+    const w = db.prepare("SELECT * FROM withdrawals WHERE id = ? AND status = 'PENDING'").get(id);
+    if (!w) return;
+    if (action === 'approve') {
+      db.prepare("UPDATE withdrawals SET status = 'APPROVED', processed_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+      success++;
+    } else if (action === 'reject') {
+      const player = db.prepare('SELECT user_id FROM players WHERE id = ?').get(w.player_id);
+      const user = db.prepare('SELECT balance FROM users WHERE id = ?').get(player.user_id);
+      db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(w.amount, player.user_id);
+      db.prepare('INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, remark) VALUES (?,?,?,?,?,?)').run(
+        player.user_id, 'REFUND', w.amount, user.balance, user.balance + w.amount, '批量拒绝退款'
+      );
+      db.prepare("UPDATE withdrawals SET status = 'REJECTED', processed_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+      success++;
+    }
+  });
+  logActivity(req.user.id, 'admin', `BATCH_WITHDRAW_${action}`, 'withdrawal', null, `${success}条`);
+  res.json({ code: 0, msg: `已处理 ${success} 条` });
+});
+
+// 管理员 - 接单员详情
+app.get('/api/admin/players/:id/detail', authMiddleware(['ADMIN', 'CS', 'BOTH']), (req, res) => {
+  const player = db.prepare('SELECT p.*, u.nickname, u.phone, u.balance, u.created_at as user_created FROM players p JOIN users u ON p.user_id = u.id WHERE p.id = ?').get(req.params.id);
+  if (!player) return res.json({ code: 404, msg: '接单员不存在' });
+
+  const recentOrders = db.prepare(`
+    SELECT o.order_no, o.product_title, o.total_amount, o.order_status, o.review_score, o.created_at, o.complete_time,
+           u.nickname as user_nickname
+    FROM orders o JOIN users u ON o.user_id = u.id
+    WHERE o.player_id = ? ORDER BY o.created_at DESC LIMIT 20
+  `).all(player.id);
+
+  const reviews = db.prepare(`
+    SELECT o.review_score, o.review_content, o.review_time, u.nickname
+    FROM orders o JOIN users u ON o.user_id = u.id
+    WHERE o.player_id = ? AND o.review_score IS NOT NULL
+    ORDER BY o.review_time DESC LIMIT 10
+  `).all(player.id);
+
+  const incomeChart = db.prepare(`
+    SELECT DATE(created_at) as date, SUM(amount) as amount
+    FROM transactions WHERE user_id = ? AND type = 'COMMISSION' AND created_at >= datetime('now', '-30 days')
+    GROUP BY DATE(created_at) ORDER BY date
+  `).all(player.user_id);
+
+  const withdrawals = db.prepare('SELECT * FROM withdrawals WHERE player_id = ? ORDER BY created_at DESC LIMIT 10').all(player.id);
+
+  res.json({ code: 0, data: { player, recentOrders, reviews, incomeChart, withdrawals } });
+});
+
+// 管理员 - 获取接单员列表(派单用)
+app.get('/api/admin/players/available', authMiddleware(['ADMIN', 'CS', 'BOTH']), (req, res) => {
+  const players = db.prepare(`
+    SELECT p.id, p.real_name, p.rating, p.total_orders, p.active_orders, p.max_concurrent, p.game_names,
+           u.nickname, u.avatar
+    FROM players p JOIN users u ON p.user_id = u.id
+    WHERE p.status = 'APPROVED'
+    ORDER BY p.rating DESC, p.active_orders ASC
+  `).all();
+  res.json({ code: 0, data: players });
+});
+
+// 管理员 - 用户详情
+app.get('/api/admin/users/:id/detail', authMiddleware(['ADMIN', 'CS', 'BOTH']), (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.json({ code: 404, msg: '用户不存在' });
+
+  const orders = db.prepare(`
+    SELECT o.order_no, o.product_title, o.total_amount, o.order_status, o.created_at
+    FROM orders o WHERE o.user_id = ? ORDER BY o.created_at DESC LIMIT 20
+  `).all(user.id);
+
+  const transactions = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20').all(user.id);
+
+  const player = db.prepare('SELECT * FROM players WHERE user_id = ?').get(user.id);
+
+  res.json({ code: 0, data: { user, orders, transactions, player } });
+});
+
+// 管理员 - 全局搜索
+app.get('/api/admin/search', authMiddleware(['ADMIN', 'CS', 'BOTH']), (req, res) => {
+  const { q } = req.query;
+  if (!q || q.length < 2) return res.json({ code: 0, data: { orders: [], users: [], players: [] } });
+  const like = `%${q}%`;
+  const orders = db.prepare(`SELECT o.id, o.order_no, o.product_title, o.total_amount, o.order_status, u.nickname FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.order_no LIKE ? OR o.product_title LIKE ? OR u.nickname LIKE ? LIMIT 5`).all(like, like, like);
+  const users = db.prepare('SELECT id, nickname, phone, balance FROM users WHERE phone LIKE ? OR nickname LIKE ? LIMIT 5').all(like, like);
+  const players = db.prepare(`SELECT p.id, p.real_name, p.rating, p.status, u.phone FROM players p JOIN users u ON p.user_id = u.id WHERE p.real_name LIKE ? OR u.phone LIKE ? OR p.game_names LIKE ? LIMIT 5`).all(like, like, like);
+  res.json({ code: 0, data: { orders, users, players } });
 });
 
 // ── 聊天 API ─────────────────────────────────────────────

@@ -118,13 +118,13 @@
   </div>
   <div class="main">
     <div class="topbar">
-      <h1 id="pageTitle">仪表盘</h1>
+      <div style="display:flex;align-items:center;gap:16px;flex:1;"><h1 id="pageTitle">仪表盘</h1><div style="position:relative;flex:1;max-width:300px;"><input class="form-input" id="globalSearch" placeholder="🔍 搜索订单/用户/接单员..." style="padding:6px 12px 6px 32px;font-size:13px;border-radius:20px;" oninput="debounceGlobalSearch()"><div id="searchDropdown" style="position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;display:none;z-index:100;box-shadow:var(--shadow-lg);max-height:400px;overflow-y:auto;"></div></div></div>
       <div class="topbar-user"><div class="topbar-avatar" id="adminAvatar">A</div><span id="adminName">管理员</span><button class="btn btn-outline btn-sm" onclick="adminLogout()">退出</button></div>
     </div>
     <div class="content">
       <!-- 仪表盘 -->
       <div class="page-section active" id="pageDashboard">
-        <div class="stats-grid" id="statsGrid"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="display:flex;gap:8px;align-items:center;"><label style="font-size:13px;color:var(--text-secondary);">日期：</label><input class="form-input" type="date" id="dashStartDate" style="width:130px;padding:5px 8px;font-size:12px;"><span style="color:var(--text-muted);">-</span><input class="form-input" type="date" id="dashEndDate" style="width:130px;padding:5px 8px;font-size:12px;"><button class="btn btn-primary btn-sm" onclick="loadDashboard()">筛选</button><button class="btn btn-ghost btn-sm" onclick="dashReset()">重置</button></div><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" onclick="setDashRange(\x27today\x27)">今日</button><button class="btn btn-outline btn-sm" onclick="setDashRange(\x27week\x27)">本周</button><button class="btn btn-outline btn-sm" onclick="setDashRange(\x27month\x27)">本月</button></div></div><div class="stats-grid" id="statsGrid"></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;" id="profitCards"></div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;">
           <div class="card"><div class="card-header"><h3>📈 近7天收入趋势</h3></div><div class="card-body" style="height:260px;"><canvas id="revenueChartCanvas"></canvas></div></div>
           <div class="card"><div class="card-header"><h3>🍩 分类销量分布</h3></div><div class="card-body" style="height:260px;"><canvas id="categoryChartCanvas"></canvas></div></div>
@@ -142,9 +142,9 @@
           <input class="form-input" id="orderSearch" placeholder="搜索订单号/商品/用户">
           <select class="form-input" id="orderStatusFilter"><option value="">全部状态</option><option value="PENDING">待支付</option><option value="PAID">待接单</option><option value="ASSIGNED">已接单</option><option value="IN_PROGRESS">进行中</option><option value="COMPLETED">已完成</option><option value="REFUNDING">退款中</option><option value="REFUNDED">已退款</option><option value="CANCELLED">已取消</option></select>
           <button class="btn btn-primary btn-sm" onclick="loadAdminOrders()">搜索</button>
-          <button class="btn btn-outline btn-sm" onclick="exportData('orders')">📥 导出CSV</button>
+          <button class="btn btn-outline btn-sm" onclick="exportData(\x27orders\x27)">📥 导出CSV</button><button class="btn btn-outline btn-sm" onclick="batchOrderAction(\x27assign\x27)">批量派单</button><button class="btn btn-outline btn-sm" onclick="batchOrderAction(\x27refund_approve\x27)">批量退款</button>
         </div>
-        <div class="card"><div class="table-wrap"><table id="ordersTable"><thead><tr><th>订单号</th><th>商品</th><th>用户</th><th>接单员</th><th>金额</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+        <div class="card"><div class="table-wrap"><table id="ordersTable"><thead><tr><th><input type="checkbox" id="orderCheckAll" onchange="toggleCheckAll(\x27order\x27)"></th><th>订单号</th><th>商品</th><th>用户</th><th>接单员</th><th>金额</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
       </div>
 
       <!-- 接单员 -->
@@ -225,7 +225,7 @@ const psClass={PENDING:'badge-warning',APPROVED:'badge-success',REJECTED:'badge-
 
 async function adminLogin(){const u=document.getElementById('adminUser').value,p=document.getElementById('adminPass').value;const r=await api('/admin/login',{method:'POST',body:JSON.stringify({username:u,password:p})});if(r.code===0){token=r.data.token;adminInfo=r.data.admin;localStorage.setItem('delta_admin_token',token);enterAdmin();}else showToast(r.msg||'登录失败');}
 function adminLogout(){token=null;adminInfo=null;localStorage.removeItem('delta_admin_token');document.getElementById('loginPage').style.display='flex';document.getElementById('mainApp').style.display='none';}
-function enterAdmin(){document.getElementById('loginPage').style.display='none';document.getElementById('mainApp').style.display='block';document.getElementById('adminName').textContent=adminInfo.nickname||adminInfo.username;document.getElementById('adminAvatar').textContent=(adminInfo.nickname||adminInfo.username)[0];showPage('dashboard');}
+function enterAdmin(){document.getElementById('loginPage').style.display='none';document.getElementById('mainApp').style.display='block';document.getElementById('adminName').textContent=adminInfo.nickname||adminInfo.username;document.getElementById('adminAvatar').textContent=(adminInfo.nickname||adminInfo.username)[0];showPage('dashboard'); connectAdminWS();}
 
 const pageTitles={dashboard:'仪表盘',orders:'订单管理',players:'接单员管理',users:'用户管理',products:'商品管理',categories:'分类管理',banners:'轮播图管理',announcements:'公告管理',withdrawals:'提现管理',configs:'系统配置',logs:'活动日志'};
 function showPage(p){document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));document.getElementById('page'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('active');document.querySelectorAll('.menu-item').forEach(m=>m.classList.remove('active'));document.querySelector(`.menu-item[data-page="${p}"]`)?.classList.add('active');document.getElementById('pageTitle').textContent=pageTitles[p]||p;({dashboard:loadDashboard,orders:loadAdminOrders,players:loadPlayers,users:loadUsers,products:loadAdminProducts,categories:loadAdminCategories,banners:loadBanners,announcements:loadAnnouncements,withdrawals:loadWithdrawals,configs:loadConfigs,logs:loadLogs})[p]?.();}
@@ -407,3 +407,220 @@ function renderCategoryChart(products) {
 </script>
 </body>
 </html>
+
+// ═══ v2.2 新功能 ═══
+
+// ── 日期范围快捷设置 ────────────────────────────
+function setDashRange(range) {
+  const now = new Date();
+  const start = new Date();
+  if (range === 'today') { /* today */ }
+  else if (range === 'week') { start.setDate(now.getDate() - 7); }
+  else if (range === 'month') { start.setMonth(now.getMonth() - 1); }
+  document.getElementById('dashStartDate').value = start.toISOString().split('T')[0];
+  document.getElementById('dashEndDate').value = now.toISOString().split('T')[0];
+  loadDashboard();
+}
+function dashReset() {
+  document.getElementById('dashStartDate').value = '';
+  document.getElementById('dashEndDate').value = '';
+  loadDashboard();
+}
+
+// ── 利润分析卡片 ────────────────────────────────
+function renderProfitCards(stats) {
+  const el = document.getElementById('profitCards');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="stat-card" style="border-left:4px solid var(--success);"><div class="label">平台佣金收入</div><div class="value" style="color:var(--success);">¥${stats.platformCommission.toFixed(2)}</div><div class="sub">抽成 ${(Number(document.querySelector('[data-key="platform_fee_rate"]')?.value || 0.3) * 100).toFixed(0)}%</div></div>
+    <div class="stat-card" style="border-left:4px solid var(--info);"><div class="label">接单员佣金</div><div class="value" style="color:var(--info);">¥${stats.playerCommission.toFixed(2)}</div><div class="sub">平均70%</div></div>
+    <div class="stat-card" style="border-left:4px solid var(--warning);"><div class="label">累计提现</div><div class="value" style="color:var(--warning);">¥${stats.totalWithdrawals.toFixed(2)}</div><div class="sub">总充值 ¥${stats.totalRecharges.toFixed(0)}</div></div>
+  `;
+}
+
+// ── 全局搜索 ────────────────────────────────────
+let searchDebounce = null;
+function debounceGlobalSearch() {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(globalSearch, 300);
+}
+async function globalSearch() {
+  const q = document.getElementById('globalSearch').value.trim();
+  const dropdown = document.getElementById('searchDropdown');
+  if (q.length < 2) { dropdown.style.display = 'none'; return; }
+  const r = await api(`/admin/search?q=${encodeURIComponent(q)}`);
+  if (r.code !== 0) return;
+  const { orders, users, players } = r.data;
+  let html = '';
+  if (orders.length) {
+    html += '<div style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--text-muted);background:var(--bg);">📋 订单</div>';
+    orders.forEach(o => { html += `<div style="padding:8px 12px;cursor:pointer;display:flex;justify-content:space-between;font-size:13px;border-bottom:1px solid var(--border-light);" onclick="showPage('orders');document.getElementById('orderSearch').value='${o.order_no}';loadAdminOrders();document.getElementById('searchDropdown').style.display='none'"><span>${o.order_no} · ${o.product_title}</span><span class="badge badge-sm s-${o.order_status}">${sMap[o.order_status]}</span></div>`; });
+  }
+  if (users.length) {
+    html += '<div style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--text-muted);background:var(--bg);">👥 用户</div>';
+    users.forEach(u => { html += `<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border-light);" onclick="showPage('users');document.getElementById('userSearch').value='${u.phone}';loadUsers();document.getElementById('searchDropdown').style.display='none'">${u.nickname} · ${u.phone} · 余额¥${u.balance.toFixed(2)}</div>`; });
+  }
+  if (players.length) {
+    html += '<div style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--text-muted);background:var(--bg);">🎮 接单员</div>';
+    players.forEach(p => { html += `<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border-light);" onclick="showPlayerDetail(${p.id})">${p.real_name} · ${p.phone} · ⭐${p.rating}</div>`; });
+  }
+  if (!html) html = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px;">无匹配结果</div>';
+  dropdown.innerHTML = html;
+  dropdown.style.display = 'block';
+}
+document.addEventListener('click', (e) => { if (!e.target.closest('#globalSearch') && !e.target.closest('#searchDropdown')) document.getElementById('searchDropdown').style.display = 'none'; });
+
+// ── 批量操作 ────────────────────────────────────
+function toggleCheckAll(type) {
+  const checked = document.getElementById(`${type}CheckAll`).checked;
+  document.querySelectorAll(`.${type}-check`).forEach(cb => cb.checked = checked);
+}
+function getSelectedOrderIds() {
+  return Array.from(document.querySelectorAll('.order-check:checked')).map(cb => Number(cb.value)).filter(Boolean);
+}
+async function batchOrderAction(action) {
+  const ids = getSelectedOrderIds();
+  if (!ids.length) return showToast('请先勾选订单');
+  if (!confirm(`确认批量${action === 'assign' ? '派单' : '退款'} ${ids.length} 笔订单？`)) return;
+  let player_id = null;
+  if (action === 'assign') {
+    const pr = await api('/admin/players/available');
+    if (pr.code !== 0) return;
+    const names = pr.data.map((p, i) => `${i + 1}. ${p.real_name} ⭐${p.rating} 进行中${p.active_orders}`).join('\n');
+    const choice = prompt(`选择接单员（输入序号）：\n${names}`);
+    if (!choice) return;
+    player_id = pr.data[Number(choice) - 1]?.id;
+    if (!player_id) return showToast('无效选择');
+  }
+  const r = await api('/admin/orders/batch', { method: 'POST', body: JSON.stringify({ action, order_ids: ids, player_id }) });
+  showToast(r.msg);
+  if (r.code === 0) loadAdminOrders();
+}
+
+// ── 接单员详情 ──────────────────────────────────
+async function showPlayerDetail(id) {
+  const r = await api(`/admin/players/${id}/detail`);
+  if (r.code !== 0) return;
+  const { player: p, recentOrders, reviews, incomeChart, withdrawals } = r.data;
+  const statusMap2 = { PENDING: '待审核', APPROVED: '已认证', REJECTED: '已拒绝', BANNED: '已封禁' };
+  const statusColor = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'danger', BANNED: 'danger' };
+  openModal(`
+    <div class="modal-title">🎮 接单员详情</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div><span class="text-xs text-muted">姓名</span><div class="font-bold">${p.real_name || '-'}</div></div>
+      <div><span class="text-xs text-muted">手机</span><div>${p.phone}</div></div>
+      <div><span class="text-xs text-muted">擅长</span><div>${p.game_names || '-'}</div></div>
+      <div><span class="text-xs text-muted">段位</span><div>${p.game_rank || '-'}</div></div>
+      <div><span class="text-xs text-muted">评分</span><div>⭐ ${p.rating} (${p.rating_count}次评价)</div></div>
+      <div><span class="text-xs text-muted">状态</span><div><span class="badge badge-${statusColor[p.status]}">${statusMap2[p.status]}</span></div></div>
+      <div><span class="text-xs text-muted">完成</span><div>${p.total_orders} 单</div></div>
+      <div><span class="text-xs text-muted">收入</span><div class="font-bold text-primary">¥${p.total_income.toFixed(2)}</div></div>
+      <div><span class="text-xs text-muted">进行中</span><div>${p.active_orders}/${p.max_concurrent}</div></div>
+      <div><span class="text-xs text-muted">余额</span><div>¥${p.balance.toFixed(2)}</div></div>
+    </div>
+    <h4 style="font-size:14px;font-weight:700;margin:16px 0 8px;">最近订单</h4>
+    <table style="width:100%;font-size:12px;"><thead><tr><th>订单号</th><th>商品</th><th>金额</th><th>状态</th><th>评分</th></tr></thead><tbody>
+    ${recentOrders.map(o => `<tr><td style="font-family:monospace;">${o.order_no}</td><td>${o.product_title}</td><td>¥${o.total_amount}</td><td><span class="badge s-${o.order_status}" style="font-size:10px;">${sMap[o.order_status]}</span></td><td>${o.review_score ? '⭐' + o.review_score : '-'}</td></tr>`).join('')}
+    </tbody></table>
+    ${reviews.length ? `<h4 style="font-size:14px;font-weight:700;margin:16px 0 8px;">用户评价</h4>${reviews.map(r => `<div style="padding:8px;background:var(--border-light);border-radius:8px;margin-bottom:6px;font-size:12px;"><div style="display:flex;justify-content:space-between;"><span>${r.nickname}</span><span>⭐${r.review_score}</span></div><div style="color:var(--text-secondary);margin-top:4px;">${r.review_content || '好评'}</div></div>`).join('')}` : ''}
+    ${p.banned_reason ? `<div style="padding:10px;background:var(--danger-light);border-radius:8px;margin-top:12px;font-size:12px;color:#991B1B;">⚠️ 封禁原因：${p.banned_reason}</div>` : ''}
+  `);
+}
+
+// ── 接单员管理增强 ──────────────────────────────
+const origLoadPlayers = typeof loadPlayers === 'function' ? loadPlayers : null;
+async function loadPlayers() {
+  const st = document.getElementById('playerStatusFilter').value, k = document.getElementById('playerSearch')?.value || '';
+  const r = await api(`/admin/players?status=${st}&keyword=${k}`);
+  if (r.code !== 0) return;
+  document.querySelector('#playersTable tbody').innerHTML = r.data.map(p => `<tr>
+    <td>${p.id}</td><td><a href="#" onclick="event.preventDefault();showPlayerDetail(${p.id})" style="color:var(--primary);font-weight:600;">${p.real_name || '-'}</a></td><td>${p.phone}</td><td>${p.game_names || '-'}</td>
+    <td>⭐${p.rating}</td><td>${p.total_orders}</td><td>¥${p.total_income.toFixed(0)}</td>
+    <td><span class="badge ${psClass[p.status]}">${psMap[p.status]}</span></td>
+    <td><div style="display:flex;gap:4px;">${p.status === 'PENDING' ? `<button class="btn btn-success btn-sm" onclick="reviewPlayer(${p.id},'approve')">通过</button><button class="btn btn-danger btn-sm" onclick="reviewPlayer(${p.id},'reject')">拒绝</button>` : `<button class="btn btn-outline btn-sm" onclick="showPlayerDetail(${p.id})">详情</button>`}</div></td>
+  </tr>`).join('');
+}
+
+// ── 更新 loadDashboard 支持日期范围和利润 ───────
+const _origLoadDashboard = loadDashboard;
+async function loadDashboard() {
+  const start = document.getElementById('dashStartDate')?.value || '';
+  const end = document.getElementById('dashEndDate')?.value || '';
+  let url = '/admin/dashboard';
+  const params = [];
+  if (start) params.push(`start_date=${start}`);
+  if (end) params.push(`end_date=${end}`);
+  if (params.length) url += '?' + params.join('&');
+
+  const r = await api(url);
+  if (r.code !== 0) return;
+  const s = r.data.stats;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card accent"><div class="label">总用户</div><div class="value">${s.totalUsers}</div><div class="sub"><span class="up">今日+${s.todayNewUsers}</span></div><div class="icon-bg">👥</div></div>
+    <div class="stat-card success"><div class="label">接单员</div><div class="value">${s.totalPlayers}</div><div class="sub">${s.onlinePlayers} 在线</div><div class="icon-bg">🎮</div></div>
+    <div class="stat-card info"><div class="label">总订单</div><div class="value">${s.totalOrders}</div><div class="sub"><span class="up">今日 ${s.todayOrders}</span></div><div class="icon-bg">📋</div></div>
+    <div class="stat-card accent"><div class="label">总收入</div><div class="value">¥${s.totalRevenue.toFixed(0)}</div><div class="sub">今日 ¥${s.todayRevenue.toFixed(0)}</div><div class="icon-bg">💰</div></div>
+    <div class="stat-card warning"><div class="label">待接单</div><div class="value">${s.pendingOrders}</div><div class="icon-bg">⏳</div></div>
+    <div class="stat-card success"><div class="label">进行中</div><div class="value">${s.activeOrders}</div><div class="icon-bg">🔄</div></div>
+    <div class="stat-card danger"><div class="label">退款中</div><div class="value">${s.pendingRefunds}</div><div class="icon-bg">↩️</div></div>
+    <div class="stat-card warning"><div class="label">待处理</div><div class="value">${s.pendingPlayers + s.pendingWithdrawals}</div><div class="sub">审核${s.pendingPlayers} 提现${s.pendingWithdrawals}</div></div>`;
+
+  // 利润卡片
+  renderProfitCards(s);
+
+  if (s.pendingOrders > 0) { document.getElementById('orderBadge').textContent = s.pendingOrders; document.getElementById('orderBadge').style.display = ''; }
+  if (s.pendingPlayers > 0) { document.getElementById('playerBadge').textContent = s.pendingPlayers; document.getElementById('playerBadge').style.display = ''; }
+  if (s.pendingWithdrawals > 0) { document.getElementById('withdrawBadge').textContent = s.pendingWithdrawals; document.getElementById('withdrawBadge').style.display = ''; }
+
+  // Chart.js
+  if (r.data.revenueChart.length) renderRevenueChart(r.data.revenueChart);
+  const statusCanvas = document.getElementById('orderStatusCanvas');
+  if (statusCanvas) {
+    const sd = [{l:'待接单',v:s.pendingOrders,c:'#F59E0B'},{l:'进行中',v:s.activeOrders,c:'#3B82F6'},{l:'已完成',v:s.completedOrders,c:'#10B981'},{l:'退款中',v:s.pendingRefunds,c:'#EF4444'}].filter(d=>d.v>0);
+    if (sd.length) new Chart(statusCanvas.getContext('2d'), { type:'pie', data:{labels:sd.map(d=>d.l),datasets:[{data:sd.map(d=>d.v),backgroundColor:sd.map(d=>d.c),borderWidth:0}]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,padding:10,font:{size:11}}}}} });
+  }
+  document.getElementById('hotProductsList').innerHTML = r.data.hotProducts.map((p,i)=>`<div class="hot-item"><div class="rank">${i+1}</div><div class="name">${p.title}</div><div class="sales">${p.sales}单</div></div>`).join('');
+  const prodRes = await api('/admin/products?limit=100');
+  if (prodRes.code === 0) renderCategoryChart(prodRes.data);
+  document.querySelector('#recentOrdersTable tbody').innerHTML = r.data.recentOrders.map(o => `<tr><td style="font-family:monospace;font-size:12px;">${o.order_no}</td><td>${o.product_title}</td><td>${o.user_nickname||'-'}</td><td class="font-bold">¥${o.total_amount}</td><td><span class="badge ${sClass[o.order_status]}">${sMap[o.order_status]}</span></td><td style="font-size:12px;color:var(--text-muted);">${new Date(o.created_at).toLocaleString('zh-CN')}</td></tr>`).join('');
+}
+
+// ── 订单表格添加复选框 ──────────────────────────
+const _origLoadAdminOrders = loadAdminOrders;
+async function loadAdminOrders() {
+  const st = document.getElementById('orderStatusFilter').value, k = document.getElementById('orderSearch').value;
+  const r = await api(`/admin/orders?status=${st}&keyword=${k}`);
+  if (r.code !== 0) return;
+  document.querySelector('#ordersTable tbody').innerHTML = r.data.map(o => `<tr>
+    <td><input type="checkbox" class="order-check" value="${o.id}"></td>
+    <td style="font-family:monospace;font-size:12px;">${o.order_no}</td><td>${o.product_title}</td>
+    <td>${o.user_nickname || '-'}<br><span style="font-size:11px;color:var(--text-muted);">${o.user_phone || ''}</span></td>
+    <td>${o.player_name || '<span style="color:var(--text-muted)">未分配</span>'}</td>
+    <td class="font-bold">¥${o.total_amount}</td>
+    <td><span class="badge ${sClass[o.order_status]}">${sMap[o.order_status]}</span></td>
+    <td><div style="display:flex;gap:4px;">${o.order_status === 'PAID' ? `<button class="btn btn-primary btn-sm" onclick="showAssignModal(${o.id})">派单</button>` : ''}${o.order_status === 'REFUNDING' ? `<button class="btn btn-success btn-sm" onclick="handleRefund(${o.id},'approve')">批准</button><button class="btn btn-danger btn-sm" onclick="handleRefund(${o.id},'reject')">拒绝</button>` : ''}</div></td>
+  </tr>`).join('');
+}
+
+// ── WebSocket 实时通知 ──────────────────────────
+let adminWs = null;
+function connectAdminWS() {
+  if (!token || adminWs) return;
+  try {
+    adminWs = new WebSocket(`ws://${location.host}/ws?token=${token}`);
+    adminWs.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'new_order') showNotification('🆕 新订单', `${msg.title} ¥${msg.amount}`);
+      if (msg.type === 'order_assigned') showNotification('✅ 已接单', `${msg.player_name} 接了订单`);
+      if (msg.type === 'order_completed') showNotification('🎉 订单完成', msg.order_no);
+    };
+    adminWs.onclose = () => { adminWs = null; setTimeout(connectAdminWS, 5000); };
+    adminWs.onerror = () => { adminWs = null; };
+  } catch (e) {}
+}
+function showNotification(title, body) {
+  showToast(`${title}: ${body}`, 3000);
+  if (Notification.permission === 'granted') new Notification(title, { body, icon: '/icon-192.svg' });
+}
+if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
