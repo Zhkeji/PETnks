@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>三角洲护航 - 接单员工作台</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-light: #ECFDF5;
+      --primary-dark: #047857;
+      --bg: #F5F5F7;
+      --card: #FFFFFF;
+      --text: #1A1A2E;
+      --text-secondary: #6B7280;
+      --text-muted: #9CA3AF;
+      --border: #E5E7EB;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .tab-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--card); display: flex;
+      border-top: 1px solid var(--border); z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .tab-item {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0; cursor: pointer; color: var(--text-muted);
+      transition: all 0.2s; font-size: 10px; font-weight: 600;
+    }
+    .tab-item.active { color: var(--primary); }
+    .tab-item svg { width: 24px; height: 24px; margin-bottom: 2px; }
+    .page { display: none; padding-bottom: 70px; min-height: 100vh; }
+    .page.active { display: block; }
+    .status-bar {
+      background: linear-gradient(135deg, var(--primary), #34D399);
+      color: white; padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .status-bar h1 { font-size: 18px; font-weight: 800; }
+    /* 卡片 */
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 16px; margin: 12px 16px;
+      box-shadow: var(--shadow);
+    }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    /* 统计 */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 12px 16px; }
+    .stat-box {
+      background: var(--card); border-radius: var(--radius-sm);
+      padding: 16px; text-align: center; box-shadow: var(--shadow);
+    }
+    .stat-box .value { font-size: 24px; font-weight: 800; color: var(--primary); }
+    .stat-box .label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    /* 抢单卡片 */
+    .grab-card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 16px; margin: 0 16px 12px;
+      box-shadow: var(--shadow); border-left: 4px solid var(--primary);
+    }
+    .grab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .grab-title { font-size: 15px; font-weight: 700; }
+    .grab-amount { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .grab-info { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+    .grab-btn {
+      width: 100%; padding: 10px; background: var(--primary); color: white;
+      border: none; border-radius: var(--radius-sm); font-size: 14px;
+      font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+    .grab-btn:active { background: var(--primary-dark); }
+    .grab-btn:disabled { background: var(--text-muted); cursor: not-allowed; }
+    /* 订单卡片 */
+    .order-card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 14px; margin: 0 16px 12px;
+      box-shadow: var(--shadow);
+    }
+    .order-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .order-no { font-size: 12px; color: var(--text-muted); }
+    .order-status { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 10px; }
+    .s-ASSIGNED { background: #E0E7FF; color: #4F46E5; }
+    .s-IN_PROGRESS { background: #D1FAE5; color: #059669; }
+    .s-COMPLETED { background: #ECFDF5; color: #10B981; }
+    .order-product { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .order-info { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+    .order-footer { display: flex; justify-content: space-between; align-items: center; }
+    .order-amount { font-size: 18px; font-weight: 800; color: var(--primary); }
+    .btn-sm { padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+    /* 空状态 */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+    /* 弹窗 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal-sheet { background: var(--card); border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-height: 85vh; overflow-y: auto; padding: 20px; animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; text-align: center; }
+    .form-group { margin-bottom: 14px; }
+    .form-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+    .form-input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; outline: none; font-family: inherit; }
+    .form-input:focus { border-color: var(--primary); }
+    textarea.form-input { min-height: 80px; resize: vertical; }
+    .btn-block { width: 100%; padding: 14px; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .btn-block.primary { background: var(--primary); color: white; }
+    /* 登录 */
+    .login-page { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 30px; background: linear-gradient(180deg, var(--primary), var(--primary) 40%, var(--bg) 40%); }
+    .login-box { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.8); color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 999; display: none; }
+    .toast.show { display: block; }
+    /* 个人中心 */
+    .profile-header { background: linear-gradient(135deg, var(--primary), #34D399); color: white; padding: 30px 20px; text-align: center; }
+    .profile-avatar { width: 70px; height: 70px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+    .profile-name { font-size: 18px; font-weight: 700; }
+    .menu-group { background: var(--card); border-radius: var(--radius); overflow: hidden; margin: 12px 16px; box-shadow: var(--shadow); }
+    .menu-item { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid var(--border); }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item .icon { font-size: 20px; margin-right: 12px; }
+    .menu-item .text { flex: 1; font-size: 14px; font-weight: 500; }
+    .menu-item .arrow { color: var(--text-muted); font-size: 14px; }
+    .menu-item .value { font-size: 13px; color: var(--text-muted); margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+
+  <!-- 登录 -->
+  <div class="page active" id="pageLogin">
+    <div class="login-page">
+      <div style="text-align:center;color:white;margin-bottom:30px;">
+        <div style="font-size:50px;margin-bottom:8px;">🎮</div>
+        <h1 style="font-size:24px;font-weight:800;">接单员工作台</h1>
+        <p style="font-size:13px;opacity:0.8;margin-top:4px;">三角洲护航 · 接单员端</p>
+      </div>
+      <div class="login-box">
+        <div class="form-group"><label class="form-label">手机号</label><input class="form-input" id="loginPhone" type="tel" placeholder="请输入手机号" maxlength="11"></div>
+        <div class="form-group"><label class="form-label">验证码</label><div style="display:flex;gap:10px;"><input class="form-input" id="loginCode" type="text" placeholder="验证码" maxlength="6" style="flex:1;"><button class="btn-sm btn-outline" onclick="sendCode()" style="padding:10px 16px;">发送</button></div><p style="font-size:11px;color:var(--text-muted);margin-top:6px;">测试: 任意手机号，验证码 123456</p></div>
+        <button class="btn-block primary" onclick="doLogin()">登 录</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 工作台 -->
+  <div class="page" id="pageWork">
+    <div class="status-bar"><h1>🎮 工作台</h1><div id="workStatus" style="font-size:12px;"></div></div>
+    <div class="stat-grid" id="playerStats"></div>
+    <div class="card">
+      <div class="card-title">📋 我的进行中订单</div>
+      <div id="activeOrders"></div>
+    </div>
+  </div>
+
+  <!-- 抢单大厅 -->
+  <div class="page" id="pageGrab">
+    <div class="status-bar"><h1>🔥 抢单大厅</h1><button class="btn-sm" style="background:rgba(255,255,255,0.2);color:white;" onclick="loadGrabOrders()">刷新</button></div>
+    <div style="padding:12px 0;" id="grabList"></div>
+  </div>
+
+  <!-- 订单记录 -->
+  <div class="page" id="pageHistory">
+    <div class="status-bar"><h1>📋 订单记录</h1></div>
+    <div style="padding:12px 0;" id="historyList"></div>
+  </div>
+
+  <!-- 我的 -->
+  <div class="page" id="pageProfile">
+    <div class="profile-header">
+      <div class="profile-avatar">🎮</div>
+      <div class="profile-name" id="pName">接单员</div>
+      <div style="font-size:12px;opacity:0.8;margin-top:4px;" id="pStatus"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:16px;">
+      <div class="stat-box"><div class="value" id="pTotalOrders">0</div><div class="label">完成订单</div></div>
+      <div class="stat-box"><div class="value" id="pTotalIncome">¥0</div><div class="label">累计收入</div></div>
+      <div class="stat-box"><div class="value" id="pRating">5.0</div><div class="label">评分</div></div>
+      <div class="stat-box"><div class="value" id="pActive">0</div><div class="label">进行中</div></div>
+    </div>
+    <div class="menu-group">
+      <div class="menu-item" onclick="showWithdrawModal()"><span class="icon">💰</span><span class="text">申请提现</span><span class="arrow">›</span></div>
+      <div class="menu-item"><span class="icon">📊</span><span class="text">收入明细</span><span class="arrow">›</span></div>
+      <div class="menu-item"><span class="icon">⚙️</span><span class="text">设置</span><span class="arrow">›</span></div>
+    </div>
+    <div class="menu-group">
+      <div class="menu-item" onclick="playerLogout()" style="justify-content:center;"><span class="text" style="color:var(--danger);">退出登录</span></div>
+    </div>
+  </div>
+
+  <!-- 抢单确认弹窗 -->
+  <div class="modal-overlay" id="grabModal">
+    <div class="modal-sheet" id="grabDetail"></div>
+  </div>
+
+  <!-- 进度更新弹窗 -->
+  <div class="modal-overlay" id="progressModal">
+    <div class="modal-sheet">
+      <div class="modal-title">📝 更新进度</div>
+      <div class="form-group"><label class="form-label">进度描述</label><textarea class="form-input" id="progressText" placeholder="描述当前进度..."></textarea></div>
+      <button class="btn-block primary" onclick="submitProgress()">提交进度</button>
+      <button class="btn-block" onclick="closeModal('progressModal')" style="margin-top:8px;background:var(--bg);color:var(--text-secondary);">取消</button>
+    </div>
+  </div>
+
+  <!-- 提现弹窗 -->
+  <div class="modal-overlay" id="withdrawModal">
+    <div class="modal-sheet">
+      <div class="modal-title">💰 申请提现</div>
+      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px;">可提现余额: <span id="withdrawBalance">¥0</span></p>
+      <div class="form-group"><input class="form-input" id="withdrawAmount" type="number" placeholder="输入提现金额"></div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">最低提现 ¥50，手续费 2%</p>
+      <button class="btn-block primary" onclick="doWithdraw()">提交申请</button>
+      <button class="btn-block" onclick="closeModal('withdrawModal')" style="margin-top:8px;background:var(--bg);color:var(--text-secondary);">取消</button>
+    </div>
+  </div>
+
+  <!-- 底部导航 -->
+  <div class="tab-bar" id="tabBar" style="display:none;">
+    <div class="tab-item active" data-tab="work" onclick="switchTab('work')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+      工作台
+    </div>
+    <div class="tab-item" data-tab="grab" onclick="switchTab('grab')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      抢单
+    </div>
+    <div class="tab-item" data-tab="history" onclick="switchTab('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      记录
+    </div>
+    <div class="tab-item" data-tab="profile" onclick="switchTab('profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      我的
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    let token = localStorage.getItem('delta_player_token');
+    let playerInfo = null;
+    let currentProgressOrderId = null;
+    let userBalance = 0;
+
+    function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+    async function api(path, opts = {}) {
+      const h = { 'Content-Type': 'application/json' };
+      if (token) h['Authorization'] = `Bearer ${token}`;
+      const r = await fetch(API + path, { ...opts, headers: h });
+      return r.json();
+    }
+    function formatPrice(p) { return '¥' + Number(p).toFixed(2); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    const sMap = { ASSIGNED:'已接单', IN_PROGRESS:'进行中', COMPLETED:'已完成' };
+
+    // 登录
+    function sendCode() { showToast('验证码已发送（测试: 123456）'); }
+    async function doLogin() {
+      const phone = document.getElementById('loginPhone').value;
+      const code = document.getElementById('loginCode').value;
+      if (!phone || !code) return showToast('请填写完整');
+      const res = await api('/user/login', { method: 'POST', body: JSON.stringify({ phone, code }) });
+      if (res.code === 0) {
+        token = res.data.token;
+        localStorage.setItem('delta_player_token', token);
+        enterApp();
+      } else { showToast(res.msg); }
+    }
+    function playerLogout() { token = null; localStorage.removeItem('delta_player_token'); document.getElementById('tabBar').style.display = 'none'; document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('pageLogin').classList.add('active'); }
+
+    async function enterApp() {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('tabBar').style.display = 'flex';
+      // 检查是否是接单员
+      const pRes = await api('/player/profile');
+      if (pRes.code === 0) {
+        playerInfo = pRes.data;
+        document.getElementById('pName').textContent = playerInfo.real_name || playerInfo.nickname || '接单员';
+        document.getElementById('pStatus').textContent = playerInfo.status === 'APPROVED' ? '✅ 已认证' : playerInfo.status === 'PENDING' ? '⏳ 审核中' : '❌ 未通过';
+        switchTab('work');
+      } else {
+        // 需要申请
+        switchTab('profile');
+        showToast('请先申请成为接单员');
+      }
+      loadProfile();
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+      const map = { work:'pageWork', grab:'pageGrab', history:'pageHistory', profile:'pageProfile' };
+      document.getElementById(map[tab]).classList.add('active');
+      document.querySelector(`.tab-item[data-tab="${tab}"]`).classList.add('active');
+      if (tab === 'work') loadWorkbench();
+      if (tab === 'grab') loadGrabOrders();
+      if (tab === 'history') loadHistory();
+      if (tab === 'profile') loadProfile();
+    }
+
+    // 工作台
+    async function loadWorkbench() {
+      if (!playerInfo) return;
+      document.getElementById('workStatus').textContent = playerInfo.online_status ? '🟢 在线' : '🔴 离线';
+      document.getElementById('playerStats').innerHTML = `
+        <div class="stat-box"><div class="value">${playerInfo.active_orders}</div><div class="label">进行中</div></div>
+        <div class="stat-box"><div class="value">${playerInfo.total_orders}</div><div class="label">已完成</div></div>
+        <div class="stat-box"><div class="value">⭐${playerInfo.rating}</div><div class="label">评分</div></div>
+      `;
+      // 进行中订单
+      const res = await api('/player/orders?status=ASSIGNED');
+      const res2 = await api('/player/orders?status=IN_PROGRESS');
+      const orders = [...(res.data || []), ...(res2.data || [])];
+      document.getElementById('activeOrders').innerHTML = orders.length === 0
+        ? '<div class="empty-state" style="padding:20px;"><div class="emoji">😴</div><div class="text">暂无进行中订单</div></div>'
+        : orders.map(o => `
+          <div class="order-card" style="margin:0 0 10px;">
+            <div class="order-header"><span class="order-no">${o.order_no}</span><span class="order-status s-${o.order_status}">${sMap[o.order_status]}</span></div>
+            <div class="order-product">${o.product_title}</div>
+            <div class="order-info">用户: ${o.user_nickname} · ${o.game_info || '无备注'}</div>
+            <div class="order-footer"><div class="order-amount">${formatPrice(o.total_amount)}</div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn-sm btn-outline" onclick="showProgressModal(${o.id})">更新进度</button>
+                <button class="btn-sm btn-primary" onclick="completeOrder(${o.id})">完成</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+    }
+
+    // 抢单大厅
+    async function loadGrabOrders() {
+      const res = await api('/player/grab-orders');
+      const list = document.getElementById('grabList');
+      if (res.code !== 0) { list.innerHTML = `<div class="empty-state"><div class="emoji">🔒</div><div class="text">${res.msg || '暂无可抢单'}</div></div>`; return; }
+      if (res.data.length === 0) { list.innerHTML = '<div class="empty-state"><div class="emoji">📭</div><div class="text">暂无可抢单，稍后再来</div></div>'; return; }
+      list.innerHTML = res.data.map(o => `
+        <div class="grab-card">
+          <div class="grab-header"><span class="grab-title">${o.product_title}</span><span class="grab-amount">${formatPrice(o.total_amount)}</span></div>
+          <div class="grab-info">订单号: ${o.order_no} · 用户: ${o.user_nickname} · ${o.game_info || '无备注'} · ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
+          <button class="grab-btn" onclick="grabOrder(${o.id})">立即抢单</button>
+        </div>
+      `).join('');
+    }
+
+    async function grabOrder(id) {
+      const res = await api(`/player/grab/${id}`, { method: 'POST' });
+      showToast(res.msg);
+      if (res.code === 0) { loadGrabOrders(); loadWorkbench(); }
+    }
+
+    // 订单记录
+    async function loadHistory() {
+      const res = await api('/player/orders');
+      const list = document.getElementById('historyList');
+      if (res.code !== 0 || res.data.length === 0) { list.innerHTML = '<div class="empty-state"><div class="emoji">📋</div><div class="text">暂无订单记录</div></div>'; return; }
+      list.innerHTML = res.data.map(o => `
+        <div class="order-card" style="margin:0 16px 12px;">
+          <div class="order-header"><span class="order-no">${o.order_no}</span><span class="order-status s-${o.order_status}">${sMap[o.order_status] || o.order_status}</span></div>
+          <div class="order-product">${o.product_title}</div>
+          <div class="order-info">用户: ${o.user_nickname} · ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
+          <div class="order-footer"><div class="order-amount">${formatPrice(o.total_amount)}</div></div>
+        </div>
+      `).join('');
+    }
+
+    // 更新进度
+    function showProgressModal(orderId) { currentProgressOrderId = orderId; document.getElementById('progressText').value = ''; document.getElementById('progressModal').classList.add('active'); }
+    async function submitProgress() {
+      const progress = document.getElementById('progressText').value;
+      if (!progress) return showToast('请输入进度描述');
+      const res = await api(`/player/orders/${currentProgressOrderId}/progress`, { method: 'POST', body: JSON.stringify({ progress }) });
+      showToast(res.msg);
+      if (res.code === 0) { closeModal('progressModal'); loadWorkbench(); }
+    }
+
+    // 完成订单
+    async function completeOrder(id) {
+      if (!confirm('确认完成此订单？')) return;
+      const res = await api(`/player/orders/${id}/complete`, { method: 'POST' });
+      showToast(res.msg);
+      if (res.code === 0) { loadWorkbench(); loadProfile(); }
+    }
+
+    // 个人中心
+    async function loadProfile() {
+      const pRes = await api('/player/profile');
+      if (pRes.code === 0) {
+        playerInfo = pRes.data;
+        document.getElementById('pTotalOrders').textContent = playerInfo.total_orders;
+        document.getElementById('pTotalIncome').formatPrice && (document.getElementById('pTotalIncome').textContent = formatPrice(playerInfo.total_income));
+        document.getElementById('pTotalIncome').textContent = formatPrice(playerInfo.total_income);
+        document.getElementById('pRating').textContent = '⭐' + playerInfo.rating;
+        document.getElementById('pActive').textContent = playerInfo.active_orders;
+      }
+      // 用户余额
+      const uRes = await api('/user/profile');
+      if (uRes.code === 0) { userBalance = uRes.data.balance; document.getElementById('withdrawBalance').textContent = formatPrice(userBalance); }
+    }
+
+    // 提现
+    function showWithdrawModal() { document.getElementById('withdrawAmount').value = ''; document.getElementById('withdrawModal').classList.add('active'); }
+    async function doWithdraw() {
+      const amount = Number(document.getElementById('withdrawAmount').value);
+      if (!amount) return showToast('请输入金额');
+      const res = await api('/player/withdraw', { method: 'POST', body: JSON.stringify({ amount }) });
+      showToast(res.msg);
+      if (res.code === 0) { closeModal('withdrawModal'); loadProfile(); }
+    }
+
+    // 初始化
+    (async () => {
+      if (token) {
+        try {
+          const res = await api('/user/profile');
+          if (res.code === 0) enterApp(); else { token = null; localStorage.removeItem('delta_player_token'); }
+        } catch (e) { token = null; }
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>三角洲护航 - 专业游戏代练服务平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #FF6B35;
+      --primary-dark: #E55A2B;
+      --primary-light: #FFF0EB;
+      --bg: #F5F5F7;
+      --card: #FFFFFF;
+      --text: #1A1A2E;
+      --text-secondary: #6B7280;
+      --text-muted: #9CA3AF;
+      --border: #E5E7EB;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* 底部导航 */
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card);
+      display: flex;
+      border-top: 1px solid var(--border);
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .tab-item.active { color: var(--primary); }
+    .tab-item svg { width: 24px; height: 24px; margin-bottom: 2px; }
+    /* 页面容器 */
+    .page { display: none; padding-bottom: 70px; min-height: 100vh; }
+    .page.active { display: block; }
+    /* 顶部状态栏 */
+    .status-bar {
+      background: linear-gradient(135deg, var(--primary), #FF8C5A);
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .status-bar h1 { font-size: 18px; font-weight: 800; }
+    .status-bar .user-info { font-size: 12px; opacity: 0.9; }
+    /* 轮播图 */
+    .banner-section { padding: 12px 16px; }
+    .banner-carousel {
+      position: relative;
+      height: 160px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .banner-carousel img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    .banner-carousel img.active { display: block; }
+    .banner-dots {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+    }
+    .banner-dots .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+      transition: all 0.3s;
+    }
+    .banner-dots .dot.active { background: white; width: 18px; border-radius: 3px; }
+    /* 公告 */
+    .notice-bar {
+      margin: 0 16px 12px;
+      background: var(--primary-light);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--primary-dark);
+    }
+    .notice-bar .notice-tag {
+      background: var(--primary);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    /* 分类 */
+    .category-section { padding: 0 16px 16px; }
+    .section-title {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-title .more { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .cat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .cat-item:active { transform: scale(0.95); }
+    .cat-icon {
+      width: 52px;
+      height: 52px;
+      background: var(--card);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: var(--shadow);
+    }
+    .cat-name { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    /* 商品列表 */
+    .product-section { padding: 0 16px 16px; }
+    .product-grid { display: flex; flex-direction: column; gap: 12px; }
+    .product-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex;
+      gap: 12px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .product-card:active { transform: scale(0.98); }
+    .product-cover {
+      width: 90px;
+      height: 90px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 32px;
+    }
+    .product-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .product-title { font-size: 15px; font-weight: 700; line-height: 1.4; }
+    .product-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .product-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+    .product-price { color: var(--primary); font-size: 20px; font-weight: 800; }
+    .product-price .unit { font-size: 12px; font-weight: 500; }
+    .product-price .original { font-size: 12px; color: var(--text-muted); text-decoration: line-through; margin-left: 6px; font-weight: 400; }
+    .product-hot {
+      background: var(--primary);
+      color: white;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+    /* 订单页 */
+    .order-tabs {
+      display: flex;
+      background: var(--card);
+      position: sticky;
+      top: 44px;
+      z-index: 40;
+      border-bottom: 1px solid var(--border);
+    }
+    .order-tab {
+      flex: 1;
+      text-align: center;
+      padding: 12px 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      position: relative;
+      transition: color 0.2s;
+    }
+    .order-tab.active { color: var(--primary); }
+    .order-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 24px;
+      height: 3px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+    .order-list { padding: 12px 16px; }
+    .order-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+    .order-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .order-no { font-size: 12px; color: var(--text-muted); }
+    .order-status {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 10px;
+    }
+    .status-PENDING { background: #FEF3C7; color: #D97706; }
+    .status-PAID { background: #DBEAFE; color: #2563EB; }
+    .status-ASSIGNED { background: #E0E7FF; color: #4F46E5; }
+    .status-IN_PROGRESS { background: #D1FAE5; color: #059669; }
+    .status-COMPLETED { background: #ECFDF5; color: #10B981; }
+    .status-CANCELLED { background: #F3F4F6; color: #6B7280; }
+    .status-REFUNDING { background: #FEE2E2; color: #DC2626; }
+    .status-REFUNDED { background: #F3F4F6; color: #6B7280; }
+    .order-product { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .order-info { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+    .order-footer { display: flex; justify-content: space-between; align-items: center; }
+    .order-amount { font-size: 18px; font-weight: 800; color: var(--primary); }
+    .order-actions { display: flex; gap: 8px; }
+    .btn-sm {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+    .btn-danger { background: var(--danger); color: white; }
+    /* 我的页 */
+    .profile-header {
+      background: linear-gradient(135deg, var(--primary), #FF8C5A);
+      color: white;
+      padding: 30px 20px 40px;
+      text-align: center;
+    }
+    .profile-avatar {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      margin: 0 auto 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+    .profile-name { font-size: 18px; font-weight: 700; }
+    .profile-phone { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .balance-card {
+      margin: -20px 16px 16px;
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      justify-content: space-around;
+      text-align: center;
+    }
+    .balance-item .value { font-size: 24px; font-weight: 800; color: var(--primary); }
+    .balance-item .label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .menu-section { padding: 0 16px; }
+    .menu-group {
+      background: var(--card);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border-bottom: 1px solid var(--border);
+    }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item:active { background: var(--bg); }
+    .menu-item .icon { font-size: 20px; margin-right: 12px; }
+    .menu-item .text { flex: 1; font-size: 14px; font-weight: 500; }
+    .menu-item .arrow { color: var(--text-muted); font-size: 14px; }
+    /* 弹窗 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-sheet {
+      background: var(--card);
+      border-radius: var(--radius) var(--radius) 0 0;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 20px;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; text-align: center; }
+    /* 表单 */
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+    .form-input:focus { border-color: var(--primary); }
+    textarea.form-input { min-height: 80px; resize: vertical; }
+    .btn-block {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-block.primary { background: var(--primary); color: white; }
+    .btn-block.primary:active { background: var(--primary-dark); }
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+    .empty-state .text { font-size: 14px; }
+    /* Loading */
+    .loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
+    /* Toast */
+    .toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 999;
+      display: none;
+      animation: fadeIn 0.2s;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .toast.show { display: block; }
+    /* 商品详情 */
+    .detail-cover {
+      height: 200px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+    }
+    .detail-info { padding: 20px; }
+    .detail-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .detail-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px; }
+    .detail-price-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 20px; }
+    .detail-price { font-size: 28px; font-weight: 800; color: var(--primary); }
+    .detail-original { font-size: 14px; color: var(--text-muted); text-decoration: line-through; }
+    /* 选择器 */
+    .qty-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .qty-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--card);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qty-value { font-size: 18px; font-weight: 700; min-width: 30px; text-align: center; }
+    /* 下单底部栏 */
+    .order-bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      z-index: 100;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+    .total-price { font-size: 24px; font-weight: 800; color: var(--primary); }
+    .total-label { font-size: 12px; color: var(--text-muted); }
+    .btn-order {
+      padding: 14px 40px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- 登录页 -->
+  <div class="page active" id="pageLogin">
+    <div style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:30px;background:linear-gradient(180deg,var(--primary) 0%,var(--primary) 40%,var(--bg) 40%);">
+      <div style="text-align:center;color:white;margin-bottom:40px;">
+        <div style="font-size:60px;margin-bottom:10px;">🎯</div>
+        <h1 style="font-size:28px;font-weight:800;">三角洲护航</h1>
+        <p style="font-size:14px;opacity:0.8;margin-top:6px;">专业游戏代练服务平台</p>
+      </div>
+      <div style="background:var(--card);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow-lg);">
+        <div class="form-group">
+          <label class="form-label">手机号</label>
+          <input class="form-input" id="loginPhone" type="tel" placeholder="请输入手机号" maxlength="11">
+        </div>
+        <div class="form-group">
+          <label class="form-label">验证码</label>
+          <div style="display:flex;gap:10px;">
+            <input class="form-input" id="loginCode" type="text" placeholder="输入验证码" maxlength="6" style="flex:1;">
+            <button class="btn-sm btn-outline" onclick="sendCode()" id="codeBtn" style="white-space:nowrap;padding:10px 16px;font-size:13px;">发送验证码</button>
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;">测试环境：任意手机号，验证码输入 123456</p>
+        </div>
+        <button class="btn-block primary" onclick="doLogin()">登 录</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 首页 -->
+  <div class="page" id="pageHome">
+    <div class="status-bar">
+      <div>
+        <h1>三角洲护航</h1>
+      </div>
+      <div class="user-info" id="homeUserInfo"></div>
+    </div>
+    <!-- 轮播图 -->
+    <div class="banner-section">
+      <div class="banner-carousel" id="bannerCarousel"></div>
+    </div>
+    <!-- 公告 -->
+    <div class="notice-bar" id="noticeBar" style="display:none;">
+      <span class="notice-tag">公告</span>
+      <span id="noticeText"></span>
+    </div>
+    <!-- 分类 -->
+    <div class="category-section">
+      <div class="section-title">
+        <span>🏷️ 服务分类</span>
+        <span class="more" onclick="switchTab('category')">查看全部</span>
+      </div>
+      <div class="category-grid" id="categoryGrid"></div>
+    </div>
+    <!-- 热门商品 -->
+    <div class="product-section">
+      <div class="section-title">🔥 热门推荐</div>
+      <div class="product-grid" id="hotProducts"></div>
+    </div>
+  </div>
+
+  <!-- 分类页 -->
+  <div class="page" id="pageCategory">
+    <div class="status-bar"><h1>全部服务</h1></div>
+    <div style="padding:12px 16px;">
+      <div class="category-grid" id="allCategories" style="margin-bottom:20px;"></div>
+      <div class="product-grid" id="categoryProducts"></div>
+    </div>
+  </div>
+
+  <!-- 订单页 -->
+  <div class="page" id="pageOrders">
+    <div class="status-bar"><h1>我的订单</h1></div>
+    <div class="order-tabs" id="orderTabs">
+      <div class="order-tab active" data-status="">全部</div>
+      <div class="order-tab" data-status="PENDING">待支付</div>
+      <div class="order-tab" data-status="PAID">进行中</div>
+      <div class="order-tab" data-status="COMPLETED">已完成</div>
+    </div>
+    <div class="order-list" id="orderList"></div>
+  </div>
+
+  <!-- 我的页 -->
+  <div class="page" id="pageProfile">
+    <div class="profile-header">
+      <div class="profile-avatar" id="profileAvatar">👤</div>
+      <div class="profile-name" id="profileName">未登录</div>
+      <div class="profile-phone" id="profilePhone"></div>
+    </div>
+    <div class="balance-card">
+      <div class="balance-item">
+        <div class="value" id="balanceValue">¥0.00</div>
+        <div class="label">账户余额</div>
+      </div>
+      <div class="balance-item">
+        <div class="value" id="orderCount">0</div>
+        <div class="label">历史订单</div>
+      </div>
+    </div>
+    <div class="menu-section">
+      <div class="menu-group">
+        <div class="menu-item" onclick="showRechargeModal()"><span class="icon">💰</span><span class="text">充值中心</span><span class="arrow">›</span></div>
+        <div class="menu-item" onclick="showApplyPlayerModal()"><span class="icon">🎮</span><span class="text">成为接单员</span><span class="arrow">›</span></div>
+        <div class="menu-item" onclick="switchTab('orders')"><span class="icon">📋</span><span class="text">我的订单</span><span class="arrow">›</span></div>
+      </div>
+      <div class="menu-group">
+        <div class="menu-item"><span class="icon">💬</span><span class="text">联系客服</span><span class="arrow">›</span></div>
+        <div class="menu-item"><span class="icon">📖</span><span class="text">使用帮助</span><span class="arrow">›</span></div>
+        <div class="menu-item"><span class="icon">⚙️</span><span class="text">设置</span><span class="arrow">›</span></div>
+      </div>
+      <div class="menu-group">
+        <div class="menu-item" onclick="logout()" style="justify-content:center;"><span class="text" style="color:var(--danger);text-align:center;">退出登录</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 商品详情弹窗 -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal-sheet" id="productDetail"></div>
+  </div>
+
+  <!-- 充值弹窗 -->
+  <div class="modal-overlay" id="rechargeModal">
+    <div class="modal-sheet">
+      <div class="modal-title">💰 充值中心</div>
+      <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px;">充 ¥100 送 ¥5，充 ¥200 送 ¥15</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;" id="rechargeOptions"></div>
+      <div class="form-group">
+        <input class="form-input" id="rechargeAmount" type="number" placeholder="自定义金额">
+      </div>
+      <button class="btn-block primary" onclick="doRecharge()">确认充值</button>
+      <button class="btn-block" onclick="closeModal('rechargeModal')" style="margin-top:8px;background:transparent;color:var(--text-muted);">取消</button>
+    </div>
+  </div>
+
+  <!-- 申请接单员弹窗 -->
+  <div class="modal-overlay" id="applyPlayerModal">
+    <div class="modal-sheet">
+      <div class="modal-title">🎮 申请成为接单员</div>
+      <div class="form-group">
+        <label class="form-label">真实姓名</label>
+        <input class="form-input" id="applyName" placeholder="请输入真实姓名">
+      </div>
+      <div class="form-group">
+        <label class="form-label">擅长游戏</label>
+        <input class="form-input" id="applyGames" placeholder="如：三角洲行动、无畏契约">
+      </div>
+      <div class="form-group">
+        <label class="form-label">技能描述</label>
+        <textarea class="form-input" id="applySkill" placeholder="描述你的游戏水平和特长"></textarea>
+      </div>
+      <button class="btn-block primary" onclick="doApplyPlayer()">提交申请</button>
+      <button class="btn-block" onclick="closeModal('applyPlayerModal')" style="margin-top:8px;background:transparent;color:var(--text-muted);">取消</button>
+    </div>
+  </div>
+
+  <!-- 底部导航 -->
+  <div class="tab-bar" id="tabBar" style="display:none;">
+    <div class="tab-item active" data-tab="home" onclick="switchTab('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+      首页
+    </div>
+    <div class="tab-item" data-tab="category" onclick="switchTab('category')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      分类
+    </div>
+    <div class="tab-item" data-tab="orders" onclick="switchTab('orders')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+      订单
+    </div>
+    <div class="tab-item" data-tab="profile" onclick="switchTab('profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      我的
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    let token = localStorage.getItem('delta_token');
+    let currentUser = null;
+    let currentOrderStatus = '';
+    let selectedQty = 1;
+    let selectedProduct = null;
+    let categories = [];
+
+    // ── 工具函数 ──────────────────────────────────────
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    async function api(path, options = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(API + path, { ...options, headers });
+      return res.json();
+    }
+
+    function formatPrice(p) { return '¥' + Number(p).toFixed(2); }
+    function formatDate(d) { return d ? new Date(d).toLocaleString('zh-CN') : ''; }
+    function statusText(s) {
+      const map = { PENDING:'待支付', PAID:'待接单', ASSIGNED:'已接单', IN_PROGRESS:'进行中', COMPLETED:'已完成', REVIEWING:'评价中', REFUNDING:'退款中', REFUNDED:'已退款', CANCELLED:'已取消' };
+      return map[s] || s;
+    }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    // ── 登录 ──────────────────────────────────────────
+    function sendCode() {
+      const phone = document.getElementById('loginPhone').value;
+      if (!phone || phone.length < 11) return showToast('请输入正确的手机号');
+      showToast('验证码已发送（测试: 123456）');
+      let sec = 60;
+      const btn = document.getElementById('codeBtn');
+      btn.disabled = true;
+      const timer = setInterval(() => { btn.textContent = `${--sec}s`; if (sec <= 0) { clearInterval(timer); btn.textContent = '发送验证码'; btn.disabled = false; } }, 1000);
+    }
+
+    async function doLogin() {
+      const phone = document.getElementById('loginPhone').value;
+      const code = document.getElementById('loginCode').value;
+      if (!phone) return showToast('请输入手机号');
+      if (!code) return showToast('请输入验证码');
+      const res = await api('/user/login', { method: 'POST', body: JSON.stringify({ phone, code }) });
+      if (res.code === 0) {
+        token = res.data.token;
+        currentUser = res.data.user;
+        localStorage.setItem('delta_token', token);
+        showToast('登录成功');
+        enterApp();
+      } else {
+        showToast(res.msg);
+      }
+    }
+
+    function logout() {
+      token = null;
+      currentUser = null;
+      localStorage.removeItem('delta_token');
+      document.getElementById('tabBar').style.display = 'none';
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('pageLogin').classList.add('active');
+    }
+
+    // ── 进入主界面 ────────────────────────────────────
+    async function enterApp() {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('tabBar').style.display = 'flex';
+      switchTab('home');
+      await Promise.all([loadBanners(), loadAnnouncements(), loadCategories(), loadHotProducts()]);
+      loadProfile();
+    }
+
+    // ── Tab 切换 ──────────────────────────────────────
+    function switchTab(tab) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+      const pageMap = { home: 'pageHome', category: 'pageCategory', orders: 'pageOrders', profile: 'pageProfile' };
+      document.getElementById(pageMap[tab]).classList.add('active');
+      document.querySelector(`.tab-item[data-tab="${tab}"]`).classList.add('active');
+      if (tab === 'orders') loadOrders();
+      if (tab === 'profile') loadProfile();
+      if (tab === 'category') { loadAllCategories(); loadCategoryProducts(); }
+    }
+
+    // ── 轮播图 ────────────────────────────────────────
+    async function loadBanners() {
+      const res = await api('/banners');
+      if (res.code !== 0) return;
+      const carousel = document.getElementById('bannerCarousel');
+      carousel.innerHTML = res.data.map((b, i) => `<img src="${b.image_url}" class="${i === 0 ? 'active' : ''}">`).join('') +
+        `<div class="banner-dots">${res.data.map((_, i) => `<div class="dot ${i === 0 ? 'active' : ''}"></div>`).join('')}</div>`;
+      // 自动轮播
+      let idx = 0;
+      setInterval(() => {
+        const imgs = carousel.querySelectorAll('img');
+        const dots = carousel.querySelectorAll('.dot');
+        if (imgs.length === 0) return;
+        imgs[idx].classList.remove('active');
+        dots[idx].classList.remove('active');
+        idx = (idx + 1) % imgs.length;
+        imgs[idx].classList.add('active');
+        dots[idx].classList.add('active');
+      }, 3000);
+    }
+
+    // ── 公告 ──────────────────────────────────────────
+    async function loadAnnouncements() {
+      const res = await api('/announcements');
+      if (res.code === 0 && res.data.length > 0) {
+        document.getElementById('noticeBar').style.display = 'flex';
+        document.getElementById('noticeText').textContent = res.data[0].title;
+      }
+    }
+
+    // ── 分类 ──────────────────────────────────────────
+    async function loadCategories() {
+      const res = await api('/categories');
+      if (res.code !== 0) return;
+      categories = res.data;
+      const grid = document.getElementById('categoryGrid');
+      const mainCats = categories.filter(c => c.parent_id === 0);
+      grid.innerHTML = mainCats.map(c => `
+        <div class="cat-item" onclick="filterByCategory(${c.id})">
+          <div class="cat-icon">${c.icon || '🎮'}</div>
+          <div class="cat-name">${c.name}</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadAllCategories() {
+      const grid = document.getElementById('allCategories');
+      grid.innerHTML = categories.map(c => `
+        <div class="cat-item" onclick="filterByCategory(${c.id})">
+          <div class="cat-icon">${c.icon || '🎮'}</div>
+          <div class="cat-name">${c.name}</div>
+        </div>
+      `).join('');
+    }
+
+    async function filterByCategory(catId) {
+      switchTab('category');
+      loadCategoryProducts(catId);
+    }
+
+    async function loadCategoryProducts(catId) {
+      const url = catId ? `/products?category_id=${catId}` : '/products';
+      const res = await api(url);
+      const grid = document.getElementById('categoryProducts');
+      if (res.code !== 0 || res.data.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><div class="emoji">📦</div><div class="text">暂无商品</div></div>';
+        return;
+      }
+      grid.innerHTML = res.data.map(p => renderProductCard(p)).join('');
+    }
+
+    // ── 热门商品 ──────────────────────────────────────
+    async function loadHotProducts() {
+      const res = await api('/products?hot=1');
+      const grid = document.getElementById('hotProducts');
+      if (res.code !== 0 || res.data.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><div class="emoji">🔥</div><div class="text">暂无热门商品</div></div>';
+        return;
+      }
+      grid.innerHTML = res.data.map(p => renderProductCard(p)).join('');
+    }
+
+    function renderProductCard(p) {
+      const icons = ['🎯', '⚔️', '💰', '📋', '🎮', '🔫', '👑', '🪖'];
+      const icon = icons[p.category_id % icons.length];
+      return `
+        <div class="product-card" onclick="showProductDetail(${p.id})">
+          <div class="product-cover">${icon}</div>
+          <div class="product-info">
+            <div>
+              <div class="product-title">${p.title}</div>
+              <div class="product-desc">${p.desc}</div>
+            </div>
+            <div class="product-bottom">
+              <div class="product-price">${formatPrice(p.price)}<span class="unit">/${p.unit}</span>${p.original_price > p.price ? `<span class="original">${formatPrice(p.original_price)}</span>` : ''}</div>
+              ${p.hot ? '<span class="product-hot">HOT</span>' : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── 商品详情 ──────────────────────────────────────
+    async function showProductDetail(id) {
+      const res = await api(`/products/${id}`);
+      if (res.code !== 0) return;
+      selectedProduct = res.data;
+      selectedQty = 1;
+      const p = res.data;
+      const icons = ['🎯', '⚔️', '💰', '📋', '🎮', '🔫', '👑', '🪖'];
+      const icon = icons[p.category_id % icons.length];
+      document.getElementById('productDetail').innerHTML = `
+        <div class="detail-cover">${icon}</div>
+        <div class="detail-info">
+          <div style="font-size:12px;color:var(--primary);font-weight:600;margin-bottom:4px;">${p.category_name}</div>
+          <div class="detail-title">${p.title}</div>
+          <div class="detail-desc">${p.desc}</div>
+          <div class="detail-price-row">
+            <div class="detail-price">${formatPrice(p.price)}</div>
+            ${p.original_price > p.price ? `<div class="detail-original">${formatPrice(p.original_price)}</div>` : ''}
+            <div style="font-size:13px;color:var(--text-muted);">/${p.unit}</div>
+          </div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">数量</div>
+          <div class="qty-selector">
+            <button class="qty-btn" onclick="changeQty(-1)">−</button>
+            <div class="qty-value" id="qtyValue">1</div>
+            <button class="qty-btn" onclick="changeQty(1)">+</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">游戏信息（ID/大区等）</label>
+            <textarea class="form-input" id="orderGameInfo" placeholder="请输入游戏ID、大区等信息"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">备注</label>
+            <input class="form-input" id="orderRemark" placeholder="其他要求（选填）">
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px;">
+            <button class="btn-block primary" onclick="createOrder()" style="flex:1;">立即下单 · ${formatPrice(p.price)}</button>
+            <button class="btn-block" onclick="closeModal('productModal')" style="flex:0.4;background:var(--bg);color:var(--text-secondary);">取消</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('productModal').classList.add('active');
+    }
+
+    function changeQty(d) {
+      selectedQty = Math.max(1, selectedQty + d);
+      document.getElementById('qtyValue').textContent = selectedQty;
+      const total = selectedProduct.price * selectedQty;
+      document.querySelector('#productDetail .btn-block.primary').textContent = `立即下单 · ${formatPrice(total)}`;
+    }
+
+    // ── 下单 ──────────────────────────────────────────
+    async function createOrder() {
+      if (!selectedProduct) return;
+      const game_info = document.getElementById('orderGameInfo')?.value || '';
+      const remark = document.getElementById('orderRemark')?.value || '';
+      const res = await api('/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          product_id: selectedProduct.id,
+          quantity: selectedQty,
+          game_info,
+          remark,
+          assign_mode: 'GRAB'
+        })
+      });
+      if (res.code === 0) {
+        showToast('下单成功！');
+        closeModal('productModal');
+        // 模拟支付
+        setTimeout(() => {
+          if (confirm(`订单已创建，是否立即支付 ${formatPrice(res.data.total_amount)}？\n（测试环境：将使用余额支付）`)) {
+            payOrder(res.data.id);
+          }
+        }, 500);
+      } else {
+        showToast(res.msg);
+      }
+    }
+
+    async function payOrder(orderId) {
+      const res = await api(`/orders/${orderId}/pay`, { method: 'POST', body: JSON.stringify({ pay_method: 'BALANCE' }) });
+      if (res.code === 0) {
+        showToast('支付成功！等待接单员接单');
+        loadOrders();
+        loadProfile();
+      } else {
+        showToast(res.msg);
+      }
+    }
+
+    // ── 订单列表 ──────────────────────────────────────
+    async function loadOrders() {
+      const res = await api(`/user/orders?status=${currentOrderStatus}`);
+      const list = document.getElementById('orderList');
+      if (res.code !== 0 || res.data.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="emoji">📋</div><div class="text">暂无订单</div></div>';
+        return;
+      }
+      list.innerHTML = res.data.map(o => `
+        <div class="order-card">
+          <div class="order-header">
+            <span class="order-no">${o.order_no}</span>
+            <span class="order-status status-${o.order_status}">${statusText(o.order_status)}</span>
+          </div>
+          <div class="order-product">${o.product_title}</div>
+          <div class="order-info">数量: ${o.quantity} · ${formatDate(o.created_at)}</div>
+          <div class="order-footer">
+            <div class="order-amount">${formatPrice(o.total_amount)}</div>
+            <div class="order-actions">
+              ${o.order_status === 'PENDING' ? `<button class="btn-sm btn-primary" onclick="payOrder(${o.id})">支付</button><button class="btn-sm btn-outline" onclick="cancelOrder(${o.id})">取消</button>` : ''}
+              ${o.order_status === 'COMPLETED' ? `<button class="btn-sm btn-primary" onclick="reviewOrder(${o.id})">评价</button>` : ''}
+              ${['PAID','ASSIGNED'].includes(o.order_status) ? `<button class="btn-sm btn-danger" onclick="refundOrder(${o.id})">退款</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 订单 Tab 切换
+    document.getElementById('orderTabs').addEventListener('click', (e) => {
+      const tab = e.target.closest('.order-tab');
+      if (!tab) return;
+      document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentOrderStatus = tab.dataset.status;
+      loadOrders();
+    });
+
+    async function cancelOrder(id) {
+      if (!confirm('确定取消订单？')) return;
+      const res = await api(`/orders/${id}/cancel`, { method: 'POST' });
+      showToast(res.msg);
+      if (res.code === 0) { loadOrders(); loadProfile(); }
+    }
+
+    async function refundOrder(id) {
+      const reason = prompt('请输入退款原因：');
+      if (reason === null) return;
+      const res = await api(`/orders/${id}/refund`, { method: 'POST', body: JSON.stringify({ reason }) });
+      showToast(res.msg);
+      if (res.code === 0) loadOrders();
+    }
+
+    async function reviewOrder(id) {
+      const score = prompt('评分（1-5）：');
+      if (!score) return;
+      const content = prompt('评价内容（选填）：');
+      const res = await api(`/orders/${id}/review`, { method: 'POST', body: JSON.stringify({ score: Number(score), content }) });
+      showToast(res.msg);
+      if (res.code === 0) loadOrders();
+    }
+
+    // ── 个人信息 ──────────────────────────────────────
+    async function loadProfile() {
+      const res = await api('/user/profile');
+      if (res.code !== 0) return;
+      currentUser = res.data;
+      document.getElementById('profileName').textContent = currentUser.nickname;
+      document.getElementById('profilePhone').textContent = currentUser.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+      document.getElementById('balanceValue').textContent = formatPrice(currentUser.balance);
+      document.getElementById('homeUserInfo').textContent = `余额 ${formatPrice(currentUser.balance)}`;
+      // 订单数
+      const orderRes = await api('/user/orders');
+      if (orderRes.code === 0) document.getElementById('orderCount').textContent = orderRes.data.length;
+    }
+
+    // ── 充值 ──────────────────────────────────────────
+    function showRechargeModal() {
+      const options = [30, 50, 100, 200, 500, 1000];
+      document.getElementById('rechargeOptions').innerHTML = options.map(a => `
+        <button class="btn-sm btn-outline" onclick="document.getElementById('rechargeAmount').value=${a}" style="padding:12px;font-size:15px;">¥${a}</button>
+      `).join('');
+      document.getElementById('rechargeModal').classList.add('active');
+    }
+
+    async function doRecharge() {
+      const amount = Number(document.getElementById('rechargeAmount').value);
+      if (!amount || amount <= 0) return showToast('请输入金额');
+      const res = await api('/user/recharge', { method: 'POST', body: JSON.stringify({ amount }) });
+      if (res.code === 0) {
+        showToast(`充值成功！${res.data.bonus > 0 ? `赠送 ¥${res.data.bonus}` : ''}`);
+        closeModal('rechargeModal');
+        loadProfile();
+      } else {
+        showToast(res.msg);
+      }
+    }
+
+    // ── 申请接单员 ────────────────────────────────────
+    function showApplyPlayerModal() { document.getElementById('applyPlayerModal').classList.add('active'); }
+
+    async function doApplyPlayer() {
+      const real_name = document.getElementById('applyName').value;
+      const game_names = document.getElementById('applyGames').value;
+      const skill_desc = document.getElementById('applySkill').value;
+      if (!real_name) return showToast('请输入姓名');
+      const res = await api('/player/apply', { method: 'POST', body: JSON.stringify({ real_name, game_names, skill_desc }) });
+      showToast(res.msg);
+      if (res.code === 0) closeModal('applyPlayerModal');
+    }
+
+    // ── 初始化 ────────────────────────────────────────
+    (async () => {
+      if (token) {
+        try {
+          const res = await api('/user/profile');
+          if (res.code === 0) {
+            currentUser = res.data;
+            enterApp();
+          } else {
+            token = null;
+            localStorage.removeItem('delta_token');
+          }
+        } catch (e) {
+          token = null;
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
