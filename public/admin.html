@@ -113,6 +113,11 @@
       <div class="menu-item" data-page="withdrawals" onclick="showPage('withdrawals')"><span class="icon">💰</span>提现管理<span class="badge" id="withdrawBadge" style="display:none;"></span></div>
       <div class="menu-label">系统</div>
       <div class="menu-item" data-page="configs" onclick="showPage('configs')"><span class="icon">⚙️</span>系统配置</div>
+      <div class="menu-item" data-page="screen" onclick="showPage('screen')"><span class="icon">📺</span>数据大屏</div>
+      <div class="menu-item" data-page="coupons" onclick="showPage('coupons')"><span class="icon">🎫</span>优惠券</div>
+      <div class="menu-item" data-page="tickets" onclick="showPage('tickets')"><span class="icon">📩</span>工单管理</div>
+      <div class="menu-item" data-page="promotions" onclick="showPage('promotions')"><span class="icon">🎉</span>活动管理</div>
+      <div class="menu-item" data-page="reports" onclick="showPage('reports')"><span class="icon">📊</span>数据报表</div>
       <div class="menu-item" data-page="ai" onclick="showPage(\x27ai\x27)"><span class="icon">🤖</span>AI客服</div>
       <div class="menu-item" data-page="ai" onclick="showPage('ai')"><span class="icon">🤖</span>AI客服</div>
       <div class="menu-item" data-page="logs" onclick="showPage('logs')"><span class="icon">📝</span>活动日志</div>
@@ -203,6 +208,53 @@
         <div class="card"><div class="card-header"><h3>⚙️ 系统参数</h3></div><div style="padding:20px;" id="configsForm"></div></div>
       </div>
 
+      <!-- 数据大屏 -->
+      <div class="page-section" id="pageScreen">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2>📺 实时数据大屏</h2>
+          <button class="btn btn-outline btn-sm" onclick="loadScreen()">🔄 刷新</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;" id="screenStats"></div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;">
+          <div class="card"><div class="card-header"><h3>📈 30天趋势</h3></div><div class="card-body" style="height:280px;"><canvas id="screenChart"></canvas></div></div>
+          <div class="card"><div class="card-header"><h3>🏆 TOP接单员</h3></div><div class="card-body" id="screenTopPlayers"></div></div>
+        </div>
+        <div class="card"><div class="card-header"><h3>📋 最新订单</h3></div><div class="table-wrap"><table id="screenOrders"><thead><tr><th>订单号</th><th>商品</th><th>金额</th><th>状态</th><th>时间</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <!-- 优惠券 -->
+      <div class="page-section" id="pageCoupons">
+        <div class="search-bar"><button class="btn btn-primary btn-sm" onclick="showCouponModal()">+ 创建优惠券</button></div>
+        <div class="card"><div class="table-wrap"><table id="couponsTable"><thead><tr><th>ID</th><th>码</th><th>名称</th><th>类型</th><th>值</th><th>门槛</th><th>已领/总量</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <!-- 工单管理 -->
+      <div class="page-section" id="pageTickets">
+        <div class="search-bar">
+          <select class="form-input" id="ticketStatusFilter"><option value="">全部状态</option><option value="OPEN">待处理</option><option value="PROCESSING">处理中</option><option value="REPLIED">已回复</option><option value="RESOLVED">已解决</option><option value="CLOSED">已关闭</option></select>
+          <button class="btn btn-primary btn-sm" onclick="loadTickets()">筛选</button>
+        </div>
+        <div id="ticketStats" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;"></div>
+        <div class="card"><div class="table-wrap"><table id="ticketsTable"><thead><tr><th>工单号</th><th>用户</th><th>分类</th><th>标题</th><th>优先级</th><th>状态</th><th>时间</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <!-- 活动管理 -->
+      <div class="page-section" id="pagePromotions">
+        <div class="search-bar"><button class="btn btn-primary btn-sm" onclick="showPromoModal()">+ 创建活动</button></div>
+        <div class="card"><div class="table-wrap"><table id="promosTable"><thead><tr><th>ID</th><th>名称</th><th>类型</th><th>值</th><th>门槛</th><th>时间</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <!-- 数据报表 -->
+      <div class="page-section" id="pageReports">
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <button class="btn btn-primary btn-sm" onclick="loadReport('daily')">日报</button>
+          <button class="btn btn-outline btn-sm" onclick="loadReport('weekly')">周报</button>
+          <button class="btn btn-outline btn-sm" onclick="loadReport('monthly')">月报</button>
+          <input class="form-input" type="date" id="reportDate" style="width:140px;padding:5px 8px;font-size:12px;">
+        </div>
+        <div id="reportContent"></div>
+      </div>
+
       <!-- AI客服 -->
       <div class="page-section" id="pageAi">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -252,7 +304,7 @@ async function adminLogin(){const u=document.getElementById('adminUser').value,p
 function adminLogout(){token=null;adminInfo=null;localStorage.removeItem('delta_admin_token');document.getElementById('loginPage').style.display='flex';document.getElementById('mainApp').style.display='none';}
 function enterAdmin(){document.getElementById('loginPage').style.display='none';document.getElementById('mainApp').style.display='block';document.getElementById('adminName').textContent=adminInfo.nickname||adminInfo.username;document.getElementById('adminAvatar').textContent=(adminInfo.nickname||adminInfo.username)[0];showPage('dashboard'); connectAdminWS();}
 
-const pageTitles={dashboard:'仪表盘',orders:'订单管理',players:'接单员管理',users:'用户管理',products:'商品管理',categories:'分类管理',banners:'轮播图管理',announcements:'公告管理',withdrawals:'提现管理',configs:'系统配置',logs:'活动日志',ai:'AI客服配置'};
+const pageTitles={dashboard:'仪表盘',orders:'订单管理',players:'接单员管理',users:'用户管理',products:'商品管理',categories:'分类管理',banners:'轮播图管理',announcements:'公告管理',withdrawals:'提现管理',configs:'系统配置',logs:'活动日志',ai:'AI客服配置',screen:'数据大屏',coupons:'优惠券',tickets:'工单管理',promotions:'活动管理',reports:'数据报表'};
 function showPage(p){document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));document.getElementById('page'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('active');document.querySelectorAll('.menu-item').forEach(m=>m.classList.remove('active'));document.querySelector(`.menu-item[data-page="${p}"]`)?.classList.add('active');document.getElementById('pageTitle').textContent=pageTitles[p]||p;({dashboard:loadDashboard,orders:loadAdminOrders,players:loadPlayers,users:loadUsers,products:loadAdminProducts,categories:loadAdminCategories,banners:loadBanners,announcements:loadAnnouncements,withdrawals:loadWithdrawals,configs:loadConfigs,logs:loadLogs})[p]?.();}
 
 async function loadDashboard(){
@@ -836,4 +888,219 @@ function importKnowledge() {
     } catch (err) { showToast('JSON格式错误'); }
   };
   input.click();
+}
+
+// ═══ 数据大屏 ═══
+let screenChartInst = null;
+async function loadScreen() {
+  const r = await api('/admin/screen');
+  if (r.code !== 0) return;
+  const s = r.data.stats;
+  document.getElementById('screenStats').innerHTML = [
+    { l: '总用户', v: s.totalUsers, c: '#4F46E5', e: '👥' },
+    { l: '总订单', v: s.totalOrders, c: '#059669', e: '📋' },
+    { l: '总收入', v: '¥' + s.totalRevenue.toFixed(0), c: '#FF6B35', e: '💰' },
+    { l: '今日订单', v: s.todayOrders, c: '#F59E0B', e: '📊' },
+    { l: '今日收入', v: '¥' + s.todayRevenue.toFixed(0), c: '#EC4899', e: '💵' },
+    { l: '进行中', v: s.activeOrders, c: '#3B82F6', e: '🔄' },
+    { l: '在线接单员', v: s.onlinePlayers, c: '#8B5CF6', e: '🎮' },
+    { l: '今日收入', v: '¥' + s.todayRevenue.toFixed(0), c: '#14B8A6', e: '📈' },
+  ].map(i => `<div class="stat-card" style="border-top:3px solid ${i.c};text-align:center;"><div style="font-size:28px;margin-bottom:8px;">${i.e}</div><div class="value" style="color:${i.c};">${i.v}</div><div class="label">${i.l}</div></div>`).join('');
+
+  // 30天趋势图
+  const canvas = document.getElementById('screenChart');
+  if (canvas && r.data.trend.length) {
+    if (screenChartInst) screenChartInst.destroy();
+    screenChartInst = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: r.data.trend.map(d => d.d.slice(5)),
+        datasets: [{ label: '收入', data: r.data.trend.map(d => d.r), borderColor: '#FF6B35', backgroundColor: 'rgba(255,107,53,0.1)', fill: true, tension: 0.4 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+  }
+
+  // TOP接单员
+  document.getElementById('screenTopPlayers').innerHTML = r.data.topPlayers.map((p, i) => `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border-light);"><div style="width:28px;height:28px;border-radius:50%;background:${i<3?'var(--primary-light)':'var(--bg)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${i<3?'var(--primary)':'var(--text-muted)'};">${i+1}</div><div style="flex:1;"><div style="font-size:13px;font-weight:600;">${p.real_name}</div><div style="font-size:11px;color:var(--text-muted);">⭐${p.rating} · ${p.total_orders}单</div></div></div>`).join('');
+
+  // 最新订单
+  document.querySelector('#screenOrders tbody').innerHTML = r.data.recent.map(o => `<tr><td style="font-family:monospace;font-size:12px;">${o.order_no}</td><td>${o.product_title}</td><td class="font-bold">¥${o.total_amount}</td><td><span class="badge s-${o.order_status}">${sMap[o.order_status]}</span></td><td style="font-size:12px;color:var(--text-muted);">${new Date(o.created_at).toLocaleString('zh-CN')}</td></tr>`).join('');
+}
+
+// ═══ 优惠券管理 ═══
+async function loadCoupons() {
+  const r = await api('/admin/coupons');
+  if (r.code !== 0) return;
+  const typeMap = { FIXED: '满减', PERCENT: '折扣', FREE: '免单' };
+  document.querySelector('#couponsTable tbody').innerHTML = r.data.map(c => `<tr>
+    <td>${c.id}</td><td style="font-family:monospace;font-weight:600;">${c.code}</td><td>${c.name}</td>
+    <td><span class="badge badge-info">${typeMap[c.type]||c.type}</span></td>
+    <td>${c.type==='PERCENT'?c.value+'%':'¥'+c.value}</td><td>¥${c.min_amount}</td>
+    <td>${c.used_count}/${c.total_count}</td>
+    <td>${c.status?'✅':'❌'}</td>
+    <td><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" onclick="editCoupon(${c.id})">编辑</button><button class="btn btn-danger btn-sm" onclick="deleteCoupon(${c.id})">删除</button></div></td>
+  </tr>`).join('');
+}
+
+function showCouponModal(data) {
+  openModal(`<div class="modal-title">${data?'编辑':'创建'}优惠券</div>
+    <div class="form-group"><label class="form-label">名称</label><input class="form-input" id="cName" value="${data?.name||''}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label class="form-label">类型</label><select class="form-input" id="cType"><option value="FIXED" ${data?.type==='FIXED'?'selected':''}>满减</option><option value="PERCENT" ${data?.type==='PERCENT'?'selected':''}>折扣</option><option value="FREE" ${data?.type==='FREE'?'selected':''}>免单</option></select></div>
+      <div class="form-group"><label class="form-label">值</label><input class="form-input" id="cValue" type="number" value="${data?.value||''}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label class="form-label">最低消费</label><input class="form-input" id="cMin" type="number" value="${data?.min_amount||0}"></div>
+      <div class="form-group"><label class="form-label">总量</label><input class="form-input" id="cTotal" type="number" value="${data?.total_count||100}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label class="form-label">开始时间</label><input class="form-input" id="cStart" type="datetime-local"></div>
+      <div class="form-group"><label class="form-label">结束时间</label><input class="form-input" id="cEnd" type="datetime-local"></div>
+    </div>
+    <div style="display:flex;gap:10px;"><button class="btn btn-primary" style="flex:1;" onclick="saveCoupon(${data?.id||0})">保存</button><button class="btn btn-ghost" onclick="closeModal()">取消</button></div>`);
+}
+
+async function saveCoupon(id) {
+  const data = { name: document.getElementById('cName').value, type: document.getElementById('cType').value, value: Number(document.getElementById('cValue').value), min_amount: Number(document.getElementById('cMin').value), total_count: Number(document.getElementById('cTotal').value), start_time: document.getElementById('cStart').value, end_time: document.getElementById('cEnd').value };
+  const r = id ? await api(`/admin/coupons/${id}`, { method: 'PUT', body: JSON.stringify(data) }) : await api('/admin/coupons', { method: 'POST', body: JSON.stringify(data) });
+  showToast(r.msg); if (r.code === 0) { closeModal(); loadCoupons(); }
+}
+async function deleteCoupon(id) { if (!confirm('确定删除？')) return; const r = await api(`/admin/coupons/${id}`, { method: 'DELETE' }); showToast(r.msg); if (r.code === 0) loadCoupons(); }
+
+// ═══ 工单管理 ═══
+async function loadTickets() {
+  const status = document.getElementById('ticketStatusFilter').value;
+  const [statsR, listR] = await Promise.all([api('/admin/tickets/stats'), api(`/admin/tickets?status=${status}`)]);
+  if (statsR.code === 0) {
+    const s = statsR.data;
+    document.getElementById('ticketStats').innerHTML = [
+      { l: '总工单', v: s.total, c: 'var(--text)' },
+      { l: '待处理', v: s.open, c: 'var(--warning)' },
+      { l: '处理中', v: s.processing, c: 'var(--info)' },
+      { l: '已解决', v: s.resolved, c: 'var(--success)' },
+      { l: '今日新增', v: s.todayNew, c: 'var(--primary)' },
+    ].map(i => `<div class="stat-card" style="text-align:center;"><div class="value" style="color:${i.c};">${i.v}</div><div class="label">${i.l}</div></div>`).join('');
+  }
+  if (listR.code === 0) {
+    const catMap = { GENERAL: '一般', ORDER: '订单', PAYMENT: '支付', ACCOUNT: '账号', OTHER: '其他' };
+    const statusMap2 = { OPEN: '待处理', PROCESSING: '处理中', REPLIED: '已回复', RESOLVED: '已解决', CLOSED: '已关闭' };
+    const statusClass2 = { OPEN: 'badge-warning', PROCESSING: 'badge-info', REPLIED: 'badge-success', RESOLVED: 'badge-success', CLOSED: 'badge-gray' };
+    document.querySelector('#ticketsTable tbody').innerHTML = listR.data.map(t => `<tr>
+      <td style="font-family:monospace;font-size:12px;">${t.ticket_no}</td><td>${t.user_name||'-'}</td>
+      <td><span class="badge badge-info">${catMap[t.category]||t.category}</span></td>
+      <td>${t.title}</td><td>${t.priority?'🔴高':'普通'}</td>
+      <td><span class="badge ${statusClass2[t.status]}">${statusMap2[t.status]}</span></td>
+      <td style="font-size:12px;color:var(--text-muted);">${new Date(t.created_at).toLocaleString('zh-CN')}</td>
+      <td><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" onclick="viewTicket(${t.id})">查看</button><button class="btn btn-primary btn-sm" onclick="replyTicket(${t.id})">回复</button></div></td>
+    </tr>`).join('');
+  }
+}
+
+async function viewTicket(id) {
+  const r = await api(`/admin/tickets/${id}`);
+  if (r.code !== 0) return;
+  const t = r.data;
+  openModal(`<div class="modal-title">📩 工单 ${t.ticket_no}</div>
+    <div style="margin-bottom:12px;"><strong>${t.title}</strong><br><span style="font-size:12px;color:var(--text-muted);">用户: ${t.user_name} · ${new Date(t.created_at).toLocaleString('zh-CN')}</span></div>
+    <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+      ${t.messages.map(m => `<div style="padding:10px;border-radius:10px;${m.sender_type==='USER'?'background:var(--border-light);align-self:flex-start;':'background:var(--primary-light);align-self:flex-end;'}max-width:80%;font-size:13px;"><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${m.sender_type==='USER'?t.user_name:'客服'} · ${new Date(m.created_at).toLocaleString('zh-CN')}</div>${m.content}</div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;">
+      <select class="form-input" id="ticketStatus" style="width:120px;"><option value="PROCESSING">处理中</option><option value="RESOLVED">已解决</option><option value="CLOSED">已关闭</option></select>
+      <button class="btn btn-primary btn-sm" onclick="updateTicketStatus(${t.id})">更新状态</button>
+    </div>`);
+}
+
+async function replyTicket(id) {
+  const content = prompt('输入回复内容：');
+  if (!content) return;
+  const r = await api(`/admin/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ content }) });
+  showToast(r.msg); if (r.code === 0) loadTickets();
+}
+
+async function updateTicketStatus(id) {
+  const status = document.getElementById('ticketStatus').value;
+  const r = await api(`/admin/tickets/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+  showToast(r.msg); if (r.code === 0) { closeModal(); loadTickets(); }
+}
+
+// ═══ 活动管理 ═══
+async function loadPromos() {
+  const r = await api('/admin/promotions');
+  if (r.code !== 0) return;
+  const typeMap = { DISCOUNT: '折扣', FIXED_OFF: '立减', FREE_SHIPPING: '免运费' };
+  document.querySelector('#promosTable tbody').innerHTML = r.data.map(p => `<tr>
+    <td>${p.id}</td><td>${p.name}</td>
+    <td><span class="badge badge-primary">${typeMap[p.type]||p.type}</span></td>
+    <td>${p.type==='DISCOUNT'?p.value+'折':'¥'+p.value}</td><td>¥${p.min_amount}</td>
+    <td style="font-size:12px;">${p.start_time||'永久'} ~ ${p.end_time||'永久'}</td>
+    <td>${p.status?'✅':'❌'}</td>
+    <td><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" onclick="togglePromo(${p.id},${p.status?0:1})">${p.status?'停用':'启用'}</button><button class="btn btn-danger btn-sm" onclick="deletePromo(${p.id})">删除</button></div></td>
+  </tr>`).join('');
+}
+
+function showPromoModal() {
+  openModal(`<div class="modal-title">创建活动</div>
+    <div class="form-group"><label class="form-label">名称</label><input class="form-input" id="pName"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label class="form-label">类型</label><select class="form-input" id="pType"><option value="DISCOUNT">折扣</option><option value="FIXED_OFF">立减</option></select></div>
+      <div class="form-group"><label class="form-label">值</label><input class="form-input" id="pValue" type="number"></div>
+    </div>
+    <div class="form-group"><label class="form-label">最低消费</label><input class="form-input" id="pMin" type="number" value="0"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label class="form-label">开始</label><input class="form-input" id="pStart" type="datetime-local"></div>
+      <div class="form-group"><label class="form-label">结束</label><input class="form-input" id="pEnd" type="datetime-local"></div>
+    </div>
+    <div style="display:flex;gap:10px;"><button class="btn btn-primary" style="flex:1;" onclick="savePromo()">创建</button><button class="btn btn-ghost" onclick="closeModal()">取消</button></div>`);
+}
+
+async function savePromo() {
+  const data = { name: document.getElementById('pName').value, type: document.getElementById('pType').value, value: Number(document.getElementById('pValue').value), min_amount: Number(document.getElementById('pMin').value), start_time: document.getElementById('pStart').value, end_time: document.getElementById('pEnd').value };
+  const r = await api('/admin/promotions', { method: 'POST', body: JSON.stringify(data) });
+  showToast(r.msg); if (r.code === 0) { closeModal(); loadPromos(); }
+}
+async function togglePromo(id, status) { await api(`/admin/promotions/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }); loadPromos(); }
+async function deletePromo(id) { if (!confirm('确定删除？')) return; await api(`/admin/promotions/${id}`, { method: 'DELETE' }); loadPromos(); }
+
+// ═══ 数据报表 ═══
+async function loadReport(type) {
+  const date = document.getElementById('reportDate')?.value || '';
+  let url = `/admin/reports/${type}`;
+  if (type === 'daily' && date) url += `?date=${date}`;
+  const r = await api(url);
+  if (r.code !== 0) return;
+  const d = r.data;
+  const el = document.getElementById('reportContent');
+  if (type === 'daily') {
+    const s = d.summary;
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+        <div class="stat-card"><div class="label">新订单</div><div class="value">${s.newOrders}</div><div class="sub">¥${s.newOrderAmount.toFixed(0)}</div></div>
+        <div class="stat-card"><div class="label">已支付</div><div class="value">${s.paidOrders}</div><div class="sub">¥${s.paidAmount.toFixed(0)}</div></div>
+        <div class="stat-card"><div class="label">已完成</div><div class="value">${s.completedOrders}</div><div class="sub">¥${s.completedAmount.toFixed(0)}</div></div>
+        <div class="stat-card"><div class="label">收入增长</div><div class="value" style="color:${s.revenueGrowth.includes('-')?'var(--danger)':'var(--success)'};">${s.revenueGrowth}</div></div>
+        <div class="stat-card"><div class="label">新用户</div><div class="value">${s.newUsers}</div></div>
+        <div class="stat-card"><div class="label">新接单员</div><div class="value">${s.newPlayers}</div></div>
+        <div class="stat-card"><div class="label">充值</div><div class="value">¥${s.recharges.toFixed(0)}</div></div>
+        <div class="stat-card"><div class="label">提现</div><div class="value">¥${s.withdrawals.toFixed(0)}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card"><div class="card-header"><h3>🏆 TOP商品</h3></div><div class="card-body">${d.topProducts.map((p,i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px;"><span>${i+1}. ${p.title}</span><span class="font-bold">¥${p.total.toFixed(0)} (${p.order_count}单)</span></div>`).join('')||'<div style="color:var(--text-muted);">暂无数据</div>'}</div></div>
+        <div class="card"><div class="card-header"><h3>🎮 TOP接单员</h3></div><div class="card-body">${d.topPlayers.map((p,i)=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px;"><span>${i+1}. ${p.real_name}</span><span class="font-bold">¥${p.total.toFixed(0)} (${p.orders}单)</span></div>`).join('')||'<div style="color:var(--text-muted);">暂无数据</div>'}</div></div>
+      </div>`;
+  } else {
+    const s = d.summary;
+    el.innerHTML = `
+      <div style="margin-bottom:16px;padding:12px;background:var(--primary-light);border-radius:8px;font-size:14px;"><strong>${d.label}</strong>：${d.start} 至 ${d.end}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+        <div class="stat-card"><div class="label">已支付订单</div><div class="value">${s.paidOrders}</div><div class="sub">¥${s.paidAmount.toFixed(0)}</div></div>
+        <div class="stat-card"><div class="label">已完成订单</div><div class="value">${s.completedOrders}</div><div class="sub">¥${s.completedAmount.toFixed(0)}</div></div>
+        <div class="stat-card"><div class="label">新用户</div><div class="value">${s.newUsers}</div></div>
+        <div class="stat-card"><div class="label">新接单员</div><div class="value">${s.newPlayers}</div></div>
+        <div class="stat-card"><div class="label">充值总额</div><div class="value">¥${s.recharges.toFixed(0)}</div></div>
+        <div class="stat-card"><div class="label">佣金支出</div><div class="value">¥${s.commission.toFixed(0)}</div></div>
+      </div>
+      ${d.dailyTrend.length ? `<div class="card"><div class="card-header"><h3>每日趋势</h3></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>订单数</th><th>收入</th></tr></thead><tbody>${d.dailyTrend.map(t=>`<tr><td>${t.date}</td><td>${t.orders}</td><td>¥${t.revenue.toFixed(0)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}`;
+  }
 }

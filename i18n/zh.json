@@ -1,0 +1,12 @@
+{
+  "app": { "name": "三角洲护航", "desc": "专业游戏代练服务平台" },
+  "nav": { "home": "首页", "category": "分类", "orders": "订单", "profile": "我的" },
+  "common": { "submit": "提交", "cancel": "取消", "confirm": "确认", "save": "保存", "delete": "删除", "edit": "编辑", "search": "搜索", "loading": "加载中...", "noData": "暂无数据", "success": "操作成功", "error": "操作失败" },
+  "order": { "create": "下单", "pay": "支付", "cancel": "取消", "refund": "退款", "review": "评价", "pending": "待支付", "paid": "待接单", "assigned": "已接单", "inProgress": "进行中", "completed": "已完成", "refunding": "退款中", "refunded": "已退款", "cancelled": "已取消" },
+  "user": { "login": "登录", "logout": "退出", "register": "注册", "phone": "手机号", "code": "验证码", "sendCode": "发送验证码", "balance": "余额", "recharge": "充值", "invite": "邀请好友" },
+  "player": { "apply": "成为接单员", "grab": "抢单", "progress": "更新进度", "complete": "完成", "withdraw": "提现", "rating": "评分", "income": "收入" },
+  "product": { "price": "价格", "unit": "单位", "hot": "热门", "new": "新品", "sales": "销量" },
+  "chat": { "send": "发送", "placeholder": "输入消息...", "ai": "AI客服", "human": "人工客服" },
+  "coupon": { "claim": "领取", "use": "使用", "expired": "已过期", "used": "已使用", "available": "可用" },
+  "ticket": { "create": "提交工单", "open": "待处理", "processing": "处理中", "resolved": "已解决", "closed": "已关闭" }
+}

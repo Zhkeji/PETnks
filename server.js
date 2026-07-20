@@ -17,6 +17,9 @@ const HealthCheck = require('./modules/health');
 const BackupService = require('./modules/backup');
 const InviteService = require('./modules/invite');
 const AICustomerService = require('./modules/ai-service');
+const CouponService = require('./modules/coupon');
+const TicketService = require('./modules/ticket');
+const ReportService = require('./modules/report');
 const { requirePermission, getAllPermissions, getAllRoles } = require('./modules/rbac');
 
 const app = express();
@@ -321,6 +324,19 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS promotions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'DISCOUNT' CHECK(type IN ('DISCOUNT','FIXED_OFF','FREE_SHIPPING')),
+    value REAL DEFAULT 0,
+    min_amount REAL DEFAULT 0,
+    start_time DATETIME,
+    end_time DATETIME,
+    product_ids TEXT DEFAULT '[]',
+    status INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS invite_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     inviter_id INTEGER REFERENCES users(id),
@@ -434,6 +450,9 @@ const health = new HealthCheck(db);
 const backup = new BackupService(path.join(__dirname, 'delta.db'), path.join(__dirname, 'backups'));
 const invite = new InviteService(db);
 const aiService = new AICustomerService(db, { enabled: false, provider: 'keyword' });
+const couponService = new CouponService(db);
+const ticketService = new TicketService(db);
+const reportService = new ReportService(db);
 
 // multer 配置
 const uploadMiddleware = multer({
@@ -1646,6 +1665,171 @@ app.get('/api/admin/export/transactions', authMiddleware(['ADMIN', 'BOTH']), (re
 // ── PWA 图标 (SVG) ───────────────────────────────────────
 app.get('/icon-192.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-192.svg')));
 app.get('/icon-512.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-192.svg')));
+
+// ── 优惠券 API ──────────────────────────────────────────
+app.get('/api/admin/coupons', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  res.json({ code: 0, data: couponService.list() });
+});
+app.post('/api/admin/coupons', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  const code = couponService.create(req.body);
+  logActivity(req.user.id, 'admin', 'CREATE_COUPON', '', null, code);
+  res.json({ code: 0, data: { code }, msg: '优惠券已创建' });
+});
+app.put('/api/admin/coupons/:id', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  couponService.update(req.params.id, req.body);
+  res.json({ code: 0, msg: '已更新' });
+});
+app.delete('/api/admin/coupons/:id', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  couponService.delete(req.params.id);
+  res.json({ code: 0, msg: '已删除' });
+});
+app.get('/api/coupons', authMiddleware(['USER']), (req, res) => {
+  const coupons = couponService.list(1);
+  const claimed = couponService.getUserCoupons(req.user.id);
+  const claimedIds = new Set(claimed.map(c => c.coupon_id));
+  res.json({ code: 0, data: { available: coupons.filter(c => !claimedIds.has(c.id)), claimed } });
+});
+app.post('/api/coupons/:id/claim', authMiddleware(['USER']), (req, res) => {
+  const r = couponService.claim(req.user.id, req.params.id);
+  res.json({ code: r.ok ? 0 : 400, msg: r.msg });
+});
+
+// ── 工单 API ─────────────────────────────────────────────
+app.post('/api/tickets', authMiddleware(['USER']), (req, res) => {
+  const ticket = ticketService.create(req.user.id, req.body);
+  res.json({ code: 0, data: ticket, msg: '工单已提交' });
+});
+app.get('/api/user/tickets', authMiddleware(['USER']), (req, res) => {
+  res.json({ code: 0, data: ticketService.list({ user_id: req.user.id }) });
+});
+app.get('/api/user/tickets/:id', authMiddleware(['USER']), (req, res) => {
+  const ticket = ticketService.get(req.params.id);
+  if (!ticket || ticket.user_id !== req.user.id) return res.json({ code: 404, msg: '工单不存在' });
+  res.json({ code: 0, data: ticket });
+});
+app.get('/api/admin/tickets', authMiddleware(['ADMIN','CS','BOTH']), (req, res) => {
+  const { status, category } = req.query;
+  res.json({ code: 0, data: ticketService.list({ status, category }) });
+});
+app.get('/api/admin/tickets/stats', authMiddleware(['ADMIN','CS','BOTH']), (req, res) => {
+  res.json({ code: 0, data: ticketService.getStats() });
+});
+app.get('/api/admin/tickets/:id', authMiddleware(['ADMIN','CS','BOTH']), (req, res) => {
+  const ticket = ticketService.get(req.params.id);
+  if (!ticket) return res.json({ code: 404, msg: '工单不存在' });
+  res.json({ code: 0, data: ticket });
+});
+app.post('/api/admin/tickets/:id/reply', authMiddleware(['ADMIN','CS','BOTH']), (req, res) => {
+  ticketService.reply(req.params.id, 'ADMIN', req.user.id, req.body.content);
+  res.json({ code: 0, msg: '已回复' });
+});
+app.post('/api/admin/tickets/:id/status', authMiddleware(['ADMIN','CS','BOTH']), (req, res) => {
+  ticketService.updateStatus(req.params.id, req.body.status, req.user.id);
+  res.json({ code: 0, msg: '状态已更新' });
+});
+
+// ── 报表 API ─────────────────────────────────────────────
+app.get('/api/admin/reports/daily', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  res.json({ code: 0, data: reportService.daily(req.query.date) });
+});
+app.get('/api/admin/reports/weekly', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  res.json({ code: 0, data: reportService.weekly() });
+});
+app.get('/api/admin/reports/monthly', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  res.json({ code: 0, data: reportService.monthly() });
+});
+
+// ── 排行榜 API ───────────────────────────────────────────
+app.get('/api/leaderboard/players', (req, res) => {
+  const players = db.prepare(`
+    SELECT p.id, p.real_name, p.rating, p.total_orders, p.total_income, u.avatar,
+           (SELECT COUNT(*) FROM orders WHERE player_id = p.id AND order_status IN ('COMPLETED','REVIEWING') AND DATE(complete_time) >= DATE('now','-7 days')) as week_orders
+    FROM players p JOIN users u ON p.user_id = u.id
+    WHERE p.status = 'APPROVED'
+    ORDER BY p.rating DESC, p.total_orders DESC LIMIT 20
+  `).all();
+  res.json({ code: 0, data: players });
+});
+app.get('/api/leaderboard/products', (req, res) => {
+  const products = db.prepare(`
+    SELECT p.id, p.title, p.price, p.sales, p.cover, c.name as category_name
+    FROM products p LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.status = 1 ORDER BY p.sales DESC LIMIT 10
+  `).all();
+  res.json({ code: 0, data: products });
+});
+
+// ── 评价增强 API ─────────────────────────────────────────
+// 追评
+app.post('/api/orders/:id/review/additional', authMiddleware(['USER']), (req, res) => {
+  const { content } = req.body;
+  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!order) return res.json({ code: 404, msg: '订单不存在' });
+  if (!order.review_score) return res.json({ code: 400, msg: '请先评价' });
+  db.prepare('UPDATE orders SET review_content = review_content || ? WHERE id = ?').run(`\n[追评] ${content}`, order.id);
+  res.json({ code: 0, msg: '追评成功' });
+});
+// 商家回复评价
+app.post('/api/admin/orders/:id/review/reply', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  const { reply } = req.body;
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+  if (!order) return res.json({ code: 404, msg: '订单不存在' });
+  db.prepare('UPDATE orders SET review_content = review_content || ? WHERE id = ?').run(`\n[商家回复] ${reply}`, order.id);
+  res.json({ code: 0, msg: '回复成功' });
+});
+
+// ── 活动/促销 API ────────────────────────────────────────
+// 活动表
+app.get('/api/admin/promotions', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  const promos = db.prepare('SELECT * FROM promotions ORDER BY created_at DESC').all();
+  res.json({ code: 0, data: promos });
+});
+app.post('/api/admin/promotions', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  const { name, type, value, min_amount, start_time, end_time, product_ids } = req.body;
+  db.prepare('INSERT INTO promotions (name,type,value,min_amount,start_time,end_time,product_ids) VALUES (?,?,?,?,?,?,?)').run(name, type, value, min_amount||0, start_time, end_time, JSON.stringify(product_ids||[]));
+  res.json({ code: 0, msg: '活动已创建' });
+});
+app.put('/api/admin/promotions/:id', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  const { status } = req.body;
+  db.prepare('UPDATE promotions SET status = ? WHERE id = ?').run(status, req.params.id);
+  res.json({ code: 0, msg: '已更新' });
+});
+app.delete('/api/admin/promotions/:id', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  db.prepare('DELETE FROM promotions WHERE id = ?').run(req.params.id);
+  res.json({ code: 0, msg: '已删除' });
+});
+app.get('/api/promotions', (req, res) => {
+  const promos = db.prepare("SELECT * FROM promotions WHERE status = 1 AND (start_time IS NULL OR start_time <= datetime('now')) AND (end_time IS NULL OR end_time >= datetime('now'))").all();
+  res.json({ code: 0, data: promos });
+});
+
+// ── 多语言 API ───────────────────────────────────────────
+const i18nData = {
+  zh: require('./i18n/zh.json'),
+  en: require('./i18n/en.json'),
+};
+app.get('/api/i18n/:lang', (req, res) => {
+  const lang = req.params.lang || 'zh';
+  res.json({ code: 0, data: i18nData[lang] || i18nData.zh });
+});
+
+// ── 数据大屏 API ─────────────────────────────────────────
+app.get('/api/admin/screen', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const stats = {
+    totalUsers: db.prepare('SELECT COUNT(*) as c FROM users').get().c,
+    totalOrders: db.prepare('SELECT COUNT(*) as c FROM orders').get().c,
+    totalRevenue: db.prepare("SELECT COALESCE(SUM(total_amount),0) as s FROM orders WHERE pay_status=1").get().s,
+    todayOrders: db.prepare("SELECT COUNT(*) as c FROM orders WHERE DATE(created_at) = ?").get(today).c,
+    todayRevenue: db.prepare("SELECT COALESCE(SUM(total_amount),0) as s FROM orders WHERE pay_status=1 AND DATE(pay_time) = ?").get(today).s,
+    activeOrders: db.prepare("SELECT COUNT(*) as c FROM orders WHERE order_status IN ('ASSIGNED','IN_PROGRESS')").get().c,
+    onlinePlayers: db.prepare("SELECT COUNT(*) as c FROM players WHERE online_status=1 AND status='APPROVED'").get().c,
+  };
+  const trend = db.prepare(`SELECT DATE(pay_time) as d, SUM(total_amount) as r, COUNT(*) as c FROM orders WHERE pay_status=1 AND pay_time >= datetime('now','-30 days') GROUP BY DATE(pay_time) ORDER BY d`).all();
+  const recent = db.prepare(`SELECT order_no, product_title, total_amount, order_status, created_at FROM orders ORDER BY created_at DESC LIMIT 10`).all();
+  const topPlayers = db.prepare(`SELECT p.real_name, p.rating, p.total_orders FROM players p WHERE p.status='APPROVED' ORDER BY p.rating DESC LIMIT 5`).all();
+  res.json({ code: 0, data: { stats, trend, recent, topPlayers } });
+});
 
 // ── AI 客服配置 ──────────────────────────────────────────
 app.get('/api/admin/ai/config', authMiddleware(['ADMIN']), (req, res) => {

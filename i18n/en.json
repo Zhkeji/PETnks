@@ -1,0 +1,12 @@
+{
+  "app": { "name": "Delta Escort", "desc": "Professional Game Boosting Service" },
+  "nav": { "home": "Home", "category": "Categories", "orders": "Orders", "profile": "Profile" },
+  "common": { "submit": "Submit", "cancel": "Cancel", "confirm": "Confirm", "save": "Save", "delete": "Delete", "edit": "Edit", "search": "Search", "loading": "Loading...", "noData": "No data", "success": "Success", "error": "Error" },
+  "order": { "create": "Place Order", "pay": "Pay", "cancel": "Cancel", "refund": "Refund", "review": "Review", "pending": "Pending", "paid": "Paid", "assigned": "Assigned", "inProgress": "In Progress", "completed": "Completed", "refunding": "Refunding", "refunded": "Refunded", "cancelled": "Cancelled" },
+  "user": { "login": "Login", "logout": "Logout", "register": "Register", "phone": "Phone", "code": "Code", "sendCode": "Send Code", "balance": "Balance", "recharge": "Recharge", "invite": "Invite Friends" },
+  "player": { "apply": "Become a Booster", "grab": "Grab Order", "progress": "Update Progress", "complete": "Complete", "withdraw": "Withdraw", "rating": "Rating", "income": "Income" },
+  "product": { "price": "Price", "unit": "Unit", "hot": "Hot", "new": "New", "sales": "Sales" },
+  "chat": { "send": "Send", "placeholder": "Type a message...", "ai": "AI Support", "human": "Human Support" },
+  "coupon": { "claim": "Claim", "use": "Use", "expired": "Expired", "used": "Used", "available": "Available" },
+  "ticket": { "create": "Submit Ticket", "open": "Open", "processing": "Processing", "resolved": "Resolved", "closed": "Closed" }
+}
