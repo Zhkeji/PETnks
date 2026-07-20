@@ -10,6 +10,9 @@ class AICustomerService {
     this.provider = config.provider || 'keyword'; // openai / local / keyword
     this.apiKey = config.apiKey || '';
     this.model = config.model || 'gpt-3.5-turbo';
+    this.systemPrompt = config.systemPrompt || '你是三角洲护航平台的AI客服助手，帮助用户解答关于游戏代练护航服务的问题。回答要简洁友好。';
+    this.welcome = config.welcome || '您好！我是AI客服助手，有什么可以帮您的吗？';
+    this.fallback = config.fallback || '抱歉，我暂时无法回答这个问题，请联系人工客服。';
 
     // 知识库
     this.knowledgeBase = {
@@ -40,7 +43,7 @@ class AICustomerService {
     }
 
     // 3. 默认回复
-    return '感谢您的咨询！我暂时无法回答这个问题，请联系人工客服获取帮助。您可以在工作时间内（9:00-22:00）联系在线客服。';
+    return this.fallback;
   }
 
   /**
@@ -79,11 +82,11 @@ class AICustomerService {
         body: JSON.stringify({
           model: this.model,
           messages: [
-            { role: 'system', content: '你是三角洲护航平台的AI客服助手，帮助用户解答关于游戏代练护航服务的问题。回答要简洁友好。' },
+            { role: 'system', content: this.systemPrompt },
             { role: 'user', content: message }
           ],
-          max_tokens: 200,
-          temperature: 0.7
+          max_tokens: Number(this.maxTokens || 200),
+          temperature: Number(this.temperature || 0.7)
         })
       });
       const data = await response.json();

@@ -113,6 +113,8 @@
       <div class="menu-item" data-page="withdrawals" onclick="showPage('withdrawals')"><span class="icon">💰</span>提现管理<span class="badge" id="withdrawBadge" style="display:none;"></span></div>
       <div class="menu-label">系统</div>
       <div class="menu-item" data-page="configs" onclick="showPage('configs')"><span class="icon">⚙️</span>系统配置</div>
+      <div class="menu-item" data-page="ai" onclick="showPage(\x27ai\x27)"><span class="icon">🤖</span>AI客服</div>
+      <div class="menu-item" data-page="ai" onclick="showPage('ai')"><span class="icon">🤖</span>AI客服</div>
       <div class="menu-item" data-page="logs" onclick="showPage('logs')"><span class="icon">📝</span>活动日志</div>
     </div>
   </div>
@@ -201,6 +203,29 @@
         <div class="card"><div class="card-header"><h3>⚙️ 系统参数</h3></div><div style="padding:20px;" id="configsForm"></div></div>
       </div>
 
+      <!-- AI客服 -->
+      <div class="page-section" id="pageAi">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <!-- 配置 -->
+          <div class="card"><div class="card-header"><h3>⚙️ AI配置</h3><button class="btn btn-primary btn-sm" onclick="saveAiConfig()">保存配置</button></div><div class="card-body" id="aiConfigForm"></div></div>
+          <!-- 测试 -->
+          <div class="card"><div class="card-header"><h3>🧪 对话测试</h3></div><div class="card-body"><div id="aiTestChat" style="height:300px;overflow-y:auto;padding:12px;background:var(--border-light);border-radius:8px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;"></div><div style="display:flex;gap:8px;"><input class="form-input" id="aiTestInput" placeholder="输入测试消息..." onkeydown="if(event.key===\x27Enter\x27)testAi()"><button class="btn btn-primary btn-sm" onclick="testAi()">发送</button></div></div></div>
+        </div>
+        <!-- 知识库 -->
+        <div class="card" style="margin-top:16px;"><div class="card-header"><h3>📚 知识库管理</h3><div style="display:flex;gap:8px;"><button class="btn btn-outline btn-sm" onclick="importKnowledge()">📥 导入</button><button class="btn btn-outline btn-sm" onclick="exportKnowledge()">📤 导出</button><button class="btn btn-primary btn-sm" onclick="showAddKnowledgeModal()">+ 添加</button></div></div><div class="table-wrap"><table id="knowledgeTable"><thead><tr><th>ID</th><th>关键词</th><th>回复内容</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      </div>
+
+      <!-- AI客服 -->
+      <div class="page-section" id="pageAi">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card"><div class="card-header"><h3>⚙️ AI配置</h3><button class="btn btn-primary btn-sm" onclick="saveAiConfig()">保存</button></div><div class="card-body" id="aiConfigForm"></div></div>
+          <div class="card"><div class="card-header"><h3>🧪 对话测试</h3></div><div class="card-body"><div id="aiTestChat" style="height:300px;overflow-y:auto;padding:12px;background:var(--border-light);border-radius:8px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;"></div><div style="display:flex;gap:8px;"><input class="form-input" id="aiTestInput" placeholder="输入测试消息..." onkeydown="if(event.key==='Enter')testAi()"><button class="btn btn-primary btn-sm" onclick="testAi()">发送</button></div></div></div>
+        </div>
+        <div class="card" style="margin-top:16px;"><div class="card-header"><h3>📚 知识库</h3><div style="display:flex;gap:8px;"><button class="btn btn-outline btn-sm" onclick="exportKnowledge()">📤 导出</button><button class="btn btn-primary btn-sm" onclick="showAddKnowledgeModal()">+ 添加</button></div></div><div class="table-wrap"><table id="knowledgeTable"><thead><tr><th>ID</th><th>关键词</th><th>回复内容(预览)</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
       <!-- 日志 -->
       <div class="page-section" id="pageLogs">
         <div class="card"><div class="table-wrap"><table id="logsTable"><thead><tr><th>时间</th><th>用户</th><th>类型</th><th>操作</th><th>详情</th></tr></thead><tbody></tbody></table></div></div>
@@ -227,7 +252,7 @@ async function adminLogin(){const u=document.getElementById('adminUser').value,p
 function adminLogout(){token=null;adminInfo=null;localStorage.removeItem('delta_admin_token');document.getElementById('loginPage').style.display='flex';document.getElementById('mainApp').style.display='none';}
 function enterAdmin(){document.getElementById('loginPage').style.display='none';document.getElementById('mainApp').style.display='block';document.getElementById('adminName').textContent=adminInfo.nickname||adminInfo.username;document.getElementById('adminAvatar').textContent=(adminInfo.nickname||adminInfo.username)[0];showPage('dashboard'); connectAdminWS();}
 
-const pageTitles={dashboard:'仪表盘',orders:'订单管理',players:'接单员管理',users:'用户管理',products:'商品管理',categories:'分类管理',banners:'轮播图管理',announcements:'公告管理',withdrawals:'提现管理',configs:'系统配置',logs:'活动日志'};
+const pageTitles={dashboard:'仪表盘',orders:'订单管理',players:'接单员管理',users:'用户管理',products:'商品管理',categories:'分类管理',banners:'轮播图管理',announcements:'公告管理',withdrawals:'提现管理',configs:'系统配置',logs:'活动日志',ai:'AI客服配置'};
 function showPage(p){document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));document.getElementById('page'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('active');document.querySelectorAll('.menu-item').forEach(m=>m.classList.remove('active'));document.querySelector(`.menu-item[data-page="${p}"]`)?.classList.add('active');document.getElementById('pageTitle').textContent=pageTitles[p]||p;({dashboard:loadDashboard,orders:loadAdminOrders,players:loadPlayers,users:loadUsers,products:loadAdminProducts,categories:loadAdminCategories,banners:loadBanners,announcements:loadAnnouncements,withdrawals:loadWithdrawals,configs:loadConfigs,logs:loadLogs})[p]?.();}
 
 async function loadDashboard(){
@@ -624,3 +649,191 @@ function showNotification(title, body) {
   if (Notification.permission === 'granted') new Notification(title, { body, icon: '/icon-192.svg' });
 }
 if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+
+// ═══ AI 客服配置 ═══
+
+async function loadAiConfig() {
+  const r = await api('/admin/ai/config');
+  if (r.code !== 0) return;
+  const c = r.data;
+  document.getElementById('aiConfigForm').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">启用AI客服</label>
+        <select class="form-input" id="aiEnabled">
+          <option value="0" ${c.ai_enabled==='0'?'selected':''}>关闭</option>
+          <option value="1" ${c.ai_enabled==='1'?'selected':''}>开启</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">AI供应商</label>
+        <select class="form-input" id="aiProvider">
+          <option value="keyword" ${c.ai_provider==='keyword'?'selected':''}>关键词匹配(免费)</option>
+          <option value="openai" ${c.ai_provider==='openai'?'selected':''}>OpenAI</option>
+          <option value="local" ${c.ai_provider==='local'?'selected':''}>本地模型</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">API Key <span style="font-weight:400;color:var(--text-muted);">(OpenAI/本地模型需要)</span></label>
+      <input class="form-input" id="aiApiKey" type="password" value="${c.ai_api_key||''}" placeholder="sk-...">
+      ${c.ai_api_key_masked ? `<p style="font-size:11px;color:var(--text-muted);margin-top:4px;">当前: ${c.ai_api_key_masked}</p>` : ''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">模型</label>
+        <select class="form-input" id="aiModel">
+          <option value="gpt-3.5-turbo" ${c.ai_model==='gpt-3.5-turbo'?'selected':''}>GPT-3.5 Turbo</option>
+          <option value="gpt-4" ${c.ai_model==='gpt-4'?'selected':''}>GPT-4</option>
+          <option value="gpt-4o" ${c.ai_model==='gpt-4o'?'selected':''}>GPT-4o</option>
+          <option value="gpt-4o-mini" ${c.ai_model==='gpt-4o-mini'?'selected':''}>GPT-4o Mini</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">最大Token</label>
+        <input class="form-input" id="aiMaxTokens" type="number" value="${c.ai_max_tokens||200}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">温度(0-1)</label>
+        <input class="form-input" id="aiTemperature" type="number" step="0.1" min="0" max="1" value="${c.ai_temperature||0.7}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">系统提示词</label>
+      <textarea class="form-input" id="aiSystemPrompt" style="min-height:60px;">${c.ai_system_prompt||''}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">欢迎语</label>
+      <input class="form-input" id="aiWelcome" value="${c.ai_welcome||''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">兜底回复</label>
+      <input class="form-input" id="aiFallback" value="${c.ai_fallback||''}">
+    </div>
+  `;
+  loadKnowledge();
+}
+
+async function saveAiConfig() {
+  const data = {
+    ai_enabled: document.getElementById('aiEnabled').value,
+    ai_provider: document.getElementById('aiProvider').value,
+    ai_api_key: document.getElementById('aiApiKey').value,
+    ai_model: document.getElementById('aiModel').value,
+    ai_max_tokens: document.getElementById('aiMaxTokens').value,
+    ai_temperature: document.getElementById('aiTemperature').value,
+    ai_system_prompt: document.getElementById('aiSystemPrompt').value,
+    ai_welcome: document.getElementById('aiWelcome').value,
+    ai_fallback: document.getElementById('aiFallback').value,
+  };
+  const r = await api('/admin/ai/config', { method: 'PUT', body: JSON.stringify(data) });
+  showToast(r.msg);
+}
+
+// AI 对话测试
+async function testAi() {
+  const input = document.getElementById('aiTestInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  const chat = document.getElementById('aiTestChat');
+  chat.innerHTML += `<div style="align-self:flex-end;background:var(--primary);color:white;padding:8px 12px;border-radius:12px;border-bottom-right-radius:4px;max-width:75%;font-size:13px;">${msg}</div>`;
+  chat.scrollTop = chat.scrollHeight;
+
+  const r = await api('/admin/ai/test', { method: 'POST', body: JSON.stringify({ message: msg }) });
+  if (r.code === 0) {
+    const d = r.data;
+    chat.innerHTML += `<div style="align-self:flex-start;background:var(--card);padding:8px 12px;border-radius:12px;border-bottom-left-radius:4px;max-width:75%;font-size:13px;box-shadow:var(--shadow-sm);">
+      <div>${d.reply}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${d.provider} · ${d.latency}ms · ${d.enabled?'AI开启':'AI关闭'}</div>
+    </div>`;
+    chat.scrollTop = chat.scrollHeight;
+  }
+}
+
+// 知识库管理
+async function loadKnowledge() {
+  const r = await api('/admin/ai/knowledge');
+  if (r.code !== 0) return;
+  document.querySelector('#knowledgeTable tbody').innerHTML = r.data.map(k => `<tr>
+    <td>${k.id}</td>
+    <td><span class="badge badge-primary">${k.keyword}</span></td>
+    <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k.reply}</td>
+    <td><div style="display:flex;gap:4px;">
+      <button class="btn btn-outline btn-sm" onclick="editKnowledge('${k.keyword}')">编辑</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteKnowledge('${k.keyword}')">删除</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+function showAddKnowledgeModal() {
+  openModal(`<div class="modal-title">添加知识条目</div>
+    <div class="form-group"><label class="form-label">关键词</label><input class="form-input" id="kwKeyword" placeholder="如: 充值"></div>
+    <div class="form-group"><label class="form-label">回复内容</label><textarea class="form-input" id="kwReply" placeholder="当用户消息包含此关键词时自动回复"></textarea></div>
+    <div style="display:flex;gap:10px;"><button class="btn btn-primary" style="flex:1;" onclick="addKnowledge()">添加</button><button class="btn btn-ghost" onclick="closeModal()">取消</button></div>`);
+}
+
+async function addKnowledge() {
+  const keyword = document.getElementById('kwKeyword').value.trim();
+  const reply = document.getElementById('kwReply').value.trim();
+  if (!keyword || !reply) return showToast('请填写完整');
+  const r = await api('/admin/ai/knowledge', { method: 'POST', body: JSON.stringify({ keyword, reply }) });
+  showToast(r.msg);
+  if (r.code === 0) { closeModal(); loadKnowledge(); }
+}
+
+async function editKnowledge(keyword) {
+  const r = await api('/admin/ai/knowledge');
+  const item = r.data.find(k => k.keyword === keyword);
+  if (!item) return;
+  openModal(`<div class="modal-title">编辑: ${keyword}</div>
+    <div class="form-group"><label class="form-label">关键词</label><input class="form-input" value="${keyword}" disabled></div>
+    <div class="form-group"><label class="form-label">回复内容</label><textarea class="form-input" id="kwReplyEdit">${item.reply}</textarea></div>
+    <div style="display:flex;gap:10px;"><button class="btn btn-primary" style="flex:1;" onclick="updateKnowledge('${keyword}')">保存</button><button class="btn btn-ghost" onclick="closeModal()">取消</button></div>`);
+}
+
+async function updateKnowledge(keyword) {
+  const reply = document.getElementById('kwReplyEdit').value.trim();
+  if (!reply) return showToast('回复内容不能为空');
+  const r = await api(`/admin/ai/knowledge/${encodeURIComponent(keyword)}`, { method: 'PUT', body: JSON.stringify({ reply }) });
+  showToast(r.msg);
+  if (r.code === 0) { closeModal(); loadKnowledge(); }
+}
+
+async function deleteKnowledge(keyword) {
+  if (!confirm(`确定删除关键词"${keyword}"？`)) return;
+  const r = await api(`/admin/ai/knowledge/${encodeURIComponent(keyword)}`, { method: 'DELETE' });
+  showToast(r.msg);
+  if (r.code === 0) loadKnowledge();
+}
+
+async function exportKnowledge() {
+  const r = await api('/admin/ai/knowledge');
+  if (r.code !== 0) return;
+  const data = {};
+  r.data.forEach(k => data[k.keyword] = k.reply);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ai-knowledge.json';
+  a.click();
+  showToast('导出成功');
+}
+
+function importKnowledge() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const data = JSON.parse(text);
+      const r = await api('/admin/ai/knowledge/import', { method: 'POST', body: JSON.stringify({ knowledge: data }) });
+      showToast(r.msg);
+      if (r.code === 0) loadKnowledge();
+    } catch (err) { showToast('JSON格式错误'); }
+  };
+  input.click();
+}

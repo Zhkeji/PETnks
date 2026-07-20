@@ -1647,6 +1647,119 @@ app.get('/api/admin/export/transactions', authMiddleware(['ADMIN', 'BOTH']), (re
 app.get('/icon-192.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-192.svg')));
 app.get('/icon-512.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-192.svg')));
 
+// ── AI 客服配置 ──────────────────────────────────────────
+app.get('/api/admin/ai/config', authMiddleware(['ADMIN']), (req, res) => {
+  const configs = {
+    ai_enabled: db.prepare("SELECT value FROM configs WHERE key = 'ai_enabled'").get()?.value || '0',
+    ai_provider: db.prepare("SELECT value FROM configs WHERE key = 'ai_provider'").get()?.value || 'keyword',
+    ai_api_key: db.prepare("SELECT value FROM configs WHERE key = 'ai_api_key'").get()?.value || '',
+    ai_model: db.prepare("SELECT value FROM configs WHERE key = 'ai_model'").get()?.value || 'gpt-3.5-turbo',
+    ai_max_tokens: db.prepare("SELECT value FROM configs WHERE key = 'ai_max_tokens'").get()?.value || '200',
+    ai_temperature: db.prepare("SELECT value FROM configs WHERE key = 'ai_temperature'").get()?.value || '0.7',
+    ai_system_prompt: db.prepare("SELECT value FROM configs WHERE key = 'ai_system_prompt'").get()?.value || '你是三角洲护航平台的AI客服助手，帮助用户解答关于游戏代练护航服务的问题。回答要简洁友好。',
+    ai_welcome: db.prepare("SELECT value FROM configs WHERE key = 'ai_welcome'").get()?.value || '您好！我是AI客服助手，有什么可以帮您的吗？',
+    ai_fallback: db.prepare("SELECT value FROM configs WHERE key = 'ai_fallback'").get()?.value || '抱歉，我暂时无法回答这个问题，请联系人工客服。',
+  };
+  // 脱敏 API Key
+  if (configs.ai_api_key) {
+    configs.ai_api_key_masked = configs.ai_api_key.slice(0, 8) + '****' + configs.ai_api_key.slice(-4);
+  }
+  res.json({ code: 0, data: configs });
+});
+
+app.put('/api/admin/ai/config', authMiddleware(['ADMIN']), (req, res) => {
+  const fields = ['ai_enabled', 'ai_provider', 'ai_api_key', 'ai_model', 'ai_max_tokens', 'ai_temperature', 'ai_system_prompt', 'ai_welcome', 'ai_fallback'];
+  const stmt = db.prepare('INSERT OR REPLACE INTO configs (key, value, type) VALUES (?, ?, ?)');
+  fields.forEach(f => {
+    if (req.body[f] !== undefined) {
+      stmt.run(f, String(req.body[f]), f.includes('prompt') || f.includes('welcome') || f.includes('fallback') ? 'TEXT' : 'STRING');
+    }
+  });
+  // 重新加载 AI 服务配置
+  const enabled = req.body.ai_enabled === '1' || req.body.ai_enabled === 1;
+  const provider = req.body.ai_provider || 'keyword';
+  const apiKey = req.body.ai_api_key || '';
+  const model = req.body.ai_model || 'gpt-3.5-turbo';
+  aiService.enabled = enabled;
+  aiService.provider = provider;
+  aiService.apiKey = apiKey;
+  aiService.model = model;
+  if (req.body.ai_system_prompt) aiService.systemPrompt = req.body.ai_system_prompt;
+  if (req.body.ai_welcome) aiService.welcome = req.body.ai_welcome;
+  if (req.body.ai_fallback) aiService.fallback = req.body.ai_fallback;
+  logActivity(req.user.id, 'admin', 'UPDATE_AI_CONFIG', '', null, `AI客服${enabled ? '已启用' : '已禁用'} (${provider})`);
+  res.json({ code: 0, msg: 'AI配置已保存' });
+});
+
+// 知识库管理
+app.get('/api/admin/ai/knowledge', authMiddleware(['ADMIN']), (req, res) => {
+  const knowledge = Object.entries(aiService.knowledgeBase).map(([keyword, reply], index) => ({
+    id: index + 1, keyword, reply
+  }));
+  res.json({ code: 0, data: knowledge });
+});
+
+app.post('/api/admin/ai/knowledge', authMiddleware(['ADMIN']), (req, res) => {
+  const { keyword, reply } = req.body;
+  if (!keyword || !reply) return res.json({ code: 400, msg: '关键词和回复内容必填' });
+  aiService.addKnowledge(keyword, reply);
+  logActivity(req.user.id, 'admin', 'ADD_AI_KNOWLEDGE', '', null, keyword);
+  res.json({ code: 0, msg: '添加成功' });
+});
+
+app.delete('/api/admin/ai/knowledge/:keyword', authMiddleware(['ADMIN']), (req, res) => {
+  const keyword = decodeURIComponent(req.params.keyword);
+  if (aiService.knowledgeBase[keyword]) {
+    delete aiService.knowledgeBase[keyword];
+    logActivity(req.user.id, 'admin', 'DELETE_AI_KNOWLEDGE', '', null, keyword);
+    res.json({ code: 0, msg: '已删除' });
+  } else {
+    res.json({ code: 404, msg: '关键词不存在' });
+  }
+});
+
+app.put('/api/admin/ai/knowledge/:keyword', authMiddleware(['ADMIN']), (req, res) => {
+  const keyword = decodeURIComponent(req.params.keyword);
+  const { reply } = req.body;
+  if (!reply) return res.json({ code: 400, msg: '回复内容必填' });
+  if (aiService.knowledgeBase[keyword]) {
+    aiService.knowledgeBase[keyword] = reply;
+    res.json({ code: 0, msg: '更新成功' });
+  } else {
+    res.json({ code: 404, msg: '关键词不存在' });
+  }
+});
+
+// AI 对话测试
+app.post('/api/admin/ai/test', authMiddleware(['ADMIN']), async (req, res) => {
+  const { message } = req.body;
+  if (!message) return res.json({ code: 400, msg: '请输入测试消息' });
+  const start = Date.now();
+  const reply = await aiService.chat(null, 0, message);
+  const latency = Date.now() - start;
+  res.json({ code: 0, data: { reply, latency, provider: aiService.provider, enabled: aiService.enabled } });
+});
+
+// 知识库导出
+app.get('/api/admin/ai/knowledge/export', authMiddleware(['ADMIN']), (req, res) => {
+  const data = JSON.stringify(aiService.knowledgeBase, null, 2);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', 'attachment; filename=ai-knowledge.json');
+  res.send(data);
+});
+
+// 知识库导入
+app.post('/api/admin/ai/knowledge/import', authMiddleware(['ADMIN']), (req, res) => {
+  const { knowledge } = req.body;
+  if (!knowledge || typeof knowledge !== 'object') return res.json({ code: 400, msg: '数据格式错误' });
+  let count = 0;
+  Object.entries(knowledge).forEach(([k, v]) => {
+    if (k && v) { aiService.addKnowledge(k, v); count++; }
+  });
+  logActivity(req.user.id, 'admin', 'IMPORT_AI_KNOWLEDGE', '', null, `导入${count}条`);
+  res.json({ code: 0, msg: `成功导入 ${count} 条知识` });
+});
+
 // ── 前端路由 ─────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
