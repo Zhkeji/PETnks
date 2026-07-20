@@ -20,6 +20,12 @@ const AICustomerService = require('./modules/ai-service');
 const CouponService = require('./modules/coupon');
 const TicketService = require('./modules/ticket');
 const ReportService = require('./modules/report');
+const cache = require('./modules/cache');
+const NotificationService = require('./modules/notification');
+const WebhookService = require('./modules/webhook');
+const WorkflowEngine = require('./modules/workflow');
+const FeatureFlags = require('./modules/feature-flags');
+const FunnelAnalytics = require('./modules/funnel');
 const { requirePermission, getAllPermissions, getAllRoles } = require('./modules/rbac');
 
 const app = express();
@@ -453,6 +459,11 @@ const aiService = new AICustomerService(db, { enabled: false, provider: 'keyword
 const couponService = new CouponService(db);
 const ticketService = new TicketService(db);
 const reportService = new ReportService(db);
+const notificationService = new NotificationService(db);
+const webhookService = new WebhookService(db);
+const workflowEngine = new WorkflowEngine(db);
+const featureFlags = new FeatureFlags(db);
+const funnelAnalytics = new FunnelAnalytics(db);
 
 // multer 配置
 const uploadMiddleware = multer({
@@ -697,12 +708,12 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 // ── 用户端 API ───────────────────────────────────────────
-app.get('/api/user/profile', authMiddleware(['USER']), (req, res) => {
+app.get('/api/user/profile', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const user = db.prepare('SELECT id, phone, nickname, avatar, gender, balance, total_spent, order_count, created_at FROM users WHERE id = ?').get(req.user.id);
   res.json({ code: 0, data: user });
 });
 
-app.put('/api/user/profile', authMiddleware(['USER']), (req, res) => {
+app.put('/api/user/profile', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { nickname, avatar, gender } = req.body;
   const updates = []; const params = [];
   if (nickname) { updates.push('nickname = ?'); params.push(nickname); }
@@ -736,7 +747,7 @@ app.post('/api/orders', authMiddleware(['USER']), rateLimit(60000, 20), (req, re
   res.json({ code: 0, data: order, msg: '下单成功' });
 });
 
-app.get('/api/user/orders', authMiddleware(['USER']), (req, res) => {
+app.get('/api/user/orders', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { status, page = 1, limit = 20 } = req.query;
   let sql = 'SELECT o.*, p.cover as product_cover FROM orders o LEFT JOIN products p ON o.product_id = p.id WHERE o.user_id = ?';
   const params = [req.user.id];
@@ -745,7 +756,7 @@ app.get('/api/user/orders', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, ...paginate(sql, params, page, limit) });
 });
 
-app.get('/api/user/orders/:id', authMiddleware(['USER']), (req, res) => {
+app.get('/api/user/orders/:id', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const order = db.prepare('SELECT o.*, p.cover as product_cover, p.subtitle as product_subtitle FROM orders o LEFT JOIN products p ON o.product_id = p.id WHERE o.id = ? AND o.user_id = ?').get(req.params.id, req.user.id);
   if (!order) return res.json({ code: 404, msg: '订单不存在' });
   const timeline = db.prepare('SELECT * FROM order_timeline WHERE order_id = ? ORDER BY created_at').all(order.id);
@@ -753,7 +764,7 @@ app.get('/api/user/orders/:id', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, data: { ...order, timeline, player } });
 });
 
-app.post('/api/orders/:id/pay', authMiddleware(['USER']), (req, res) => {
+app.post('/api/orders/:id/pay', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { pay_method = 'BALANCE' } = req.body;
   const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!order) return res.json({ code: 404, msg: '订单不存在' });
@@ -791,7 +802,7 @@ app.post('/api/orders/:id/pay', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, msg: '支付成功', data: { order_status: 'PAID' } });
 });
 
-app.post('/api/orders/:id/cancel', authMiddleware(['USER']), (req, res) => {
+app.post('/api/orders/:id/cancel', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!order) return res.json({ code: 404, msg: '订单不存在' });
   if (!['PENDING', 'PAID'].includes(order.order_status)) return res.json({ code: 400, msg: '当前状态不可取消' });
@@ -810,7 +821,7 @@ app.post('/api/orders/:id/cancel', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, msg: '订单已取消' });
 });
 
-app.post('/api/orders/:id/refund', authMiddleware(['USER']), (req, res) => {
+app.post('/api/orders/:id/refund', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { reason } = req.body;
   const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!order) return res.json({ code: 404, msg: '订单不存在' });
@@ -821,7 +832,7 @@ app.post('/api/orders/:id/refund', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, msg: '退款申请已提交' });
 });
 
-app.post('/api/orders/:id/review', authMiddleware(['USER']), (req, res) => {
+app.post('/api/orders/:id/review', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { score, content } = req.body;
   if (!score || score < 1 || score > 5) return res.json({ code: 400, msg: '评分1-5' });
   const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
@@ -842,7 +853,7 @@ app.post('/api/orders/:id/review', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, msg: '评价成功' });
 });
 
-app.post('/api/user/recharge', authMiddleware(['USER']), (req, res) => {
+app.post('/api/user/recharge', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { amount } = req.body;
   if (!amount || amount <= 0 || amount > 50000) return res.json({ code: 400, msg: '金额无效（1-50000）' });
 
@@ -866,7 +877,7 @@ app.post('/api/user/recharge', authMiddleware(['USER']), (req, res) => {
 });
 
 // ── 接单员 API ───────────────────────────────────────────
-app.post('/api/player/apply', authMiddleware(['USER']), (req, res) => {
+app.post('/api/player/apply', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { real_name, game_names, skill_desc, game_rank } = req.body;
   if (!real_name) return res.json({ code: 400, msg: '请输入真实姓名' });
 
@@ -886,13 +897,13 @@ app.post('/api/player/apply', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, msg: '申请已提交，等待管理员审核' });
 });
 
-app.get('/api/player/profile', authMiddleware(['USER']), (req, res) => {
+app.get('/api/player/profile', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const player = db.prepare('SELECT p.*, u.nickname, u.phone, u.avatar as user_avatar, u.balance FROM players p JOIN users u ON p.user_id = u.id WHERE p.user_id = ?').get(req.user.id);
   if (!player) return res.json({ code: 404, msg: '未申请接单员' });
   res.json({ code: 0, data: player });
 });
 
-app.get('/api/player/grab-orders', authMiddleware(['USER']), (req, res) => {
+app.get('/api/player/grab-orders', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const player = db.prepare('SELECT * FROM players WHERE user_id = ? AND status = ?').get(req.user.id, 'APPROVED');
   if (!player) return res.json({ code: 403, msg: '非认证接单员' });
   if (player.active_orders >= player.max_concurrent) return res.json({ code: 0, data: [], msg: '接单数已达上限' });
@@ -906,7 +917,7 @@ app.get('/api/player/grab-orders', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, data: orders });
 });
 
-app.post('/api/player/grab/:orderId', authMiddleware(['USER']), (req, res) => {
+app.post('/api/player/grab/:orderId', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const player = db.prepare('SELECT * FROM players WHERE user_id = ? AND status = ?').get(req.user.id, 'APPROVED');
   if (!player) return res.json({ code: 403, msg: '非认证接单员' });
   if (player.active_orders >= player.max_concurrent) return res.json({ code: 400, msg: '接单数已达上限' });
@@ -932,7 +943,7 @@ app.post('/api/player/grab/:orderId', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, msg: '抢单成功！' });
 });
 
-app.get('/api/player/orders', authMiddleware(['USER']), (req, res) => {
+app.get('/api/player/orders', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const player = db.prepare('SELECT * FROM players WHERE user_id = ?').get(req.user.id);
   if (!player) return res.json({ code: 403, msg: '非接单员' });
 
@@ -944,7 +955,7 @@ app.get('/api/player/orders', authMiddleware(['USER']), (req, res) => {
   res.json({ code: 0, ...paginate(sql, params, page, limit) });
 });
 
-app.post('/api/player/orders/:id/progress', authMiddleware(['USER']), (req, res) => {
+app.post('/api/player/orders/:id/progress', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { progress } = req.body;
   if (!progress) return res.json({ code: 400, msg: '请输入进度描述' });
   const player = db.prepare('SELECT * FROM players WHERE user_id = ?').get(req.user.id);
@@ -959,7 +970,7 @@ app.post('/api/player/orders/:id/progress', authMiddleware(['USER']), (req, res)
   res.json({ code: 0, msg: '进度已更新' });
 });
 
-app.post('/api/player/orders/:id/complete', authMiddleware(['USER']), (req, res) => {
+app.post('/api/player/orders/:id/complete', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const player = db.prepare('SELECT * FROM players WHERE user_id = ?').get(req.user.id);
   if (!player) return res.json({ code: 403, msg: '非接单员' });
 
@@ -987,7 +998,7 @@ app.post('/api/player/orders/:id/complete', authMiddleware(['USER']), (req, res)
   res.json({ code: 0, msg: '订单已完成', data: { commission, platformFee } });
 });
 
-app.post('/api/player/withdraw', authMiddleware(['USER']), (req, res) => {
+app.post('/api/player/withdraw', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { amount, bank_name = '', bank_account = '' } = req.body;
   if (!amount || amount <= 0) return res.json({ code: 400, msg: '金额无效' });
 
@@ -1016,7 +1027,7 @@ app.post('/api/player/withdraw', authMiddleware(['USER']), (req, res) => {
 });
 
 // 接单员统计
-app.get('/api/player/stats', authMiddleware(['USER']), (req, res) => {
+app.get('/api/player/stats', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const player = db.prepare('SELECT * FROM players WHERE user_id = ?').get(req.user.id);
   if (!player) return res.json({ code: 403, msg: '非接单员' });
 
@@ -1515,12 +1526,12 @@ app.post('/api/admin/backups', authMiddleware(['ADMIN']), (req, res) => {
 });
 
 // ── 邀请/分销系统 ────────────────────────────────────────
-app.get('/api/user/invite', authMiddleware(['USER']), (req, res) => {
+app.get('/api/user/invite', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const stats = invite.getStats(req.user.id);
   res.json({ code: 0, data: stats });
 });
 
-app.post('/api/user/invite/init', authMiddleware(['USER']), (req, res) => {
+app.post('/api/user/invite/init', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const code = invite.initUser(req.user.id);
   res.json({ code: 0, data: { inviteCode: code } });
 });
@@ -1536,7 +1547,7 @@ app.get('/api/admin/permissions', authMiddleware(['ADMIN']), (req, res) => {
 
 // ── 聊天 API ─────────────────────────────────────────────
 // 获取或创建聊天会话
-app.post('/api/chat/session', authMiddleware(['USER']), (req, res) => {
+app.post('/api/chat/session', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { target_type, target_id, order_id } = req.body; // target_type: PLAYER/CS
   const userId = req.user.id;
   let session;
@@ -1568,7 +1579,7 @@ app.post('/api/chat/session', authMiddleware(['USER']), (req, res) => {
 });
 
 // 获取会话列表
-app.get('/api/chat/sessions', authMiddleware(['USER']), (req, res) => {
+app.get('/api/chat/sessions', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const userId = req.user.id;
   const sessions = db.prepare(`
     SELECT cs.*, 
@@ -1584,7 +1595,7 @@ app.get('/api/chat/sessions', authMiddleware(['USER']), (req, res) => {
 });
 
 // 获取消息
-app.get('/api/chat/messages/:sessionId', authMiddleware(['USER']), (req, res) => {
+app.get('/api/chat/messages/:sessionId', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { before, limit = 50 } = req.query;
   let sql = 'SELECT * FROM chat_messages WHERE session_id = ?';
   const params = [req.params.sessionId];
@@ -1599,7 +1610,7 @@ app.get('/api/chat/messages/:sessionId', authMiddleware(['USER']), (req, res) =>
 });
 
 // 发送消息
-app.post('/api/chat/send', authMiddleware(['USER']), (req, res) => {
+app.post('/api/chat/send', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { session_id, content, msg_type = 'TEXT' } = req.body;
   if (!session_id || !content) return res.json({ code: 400, msg: '参数不完整' });
   const session = db.prepare('SELECT * FROM chat_sessions WHERE id = ?').get(session_id);
@@ -1683,26 +1694,26 @@ app.delete('/api/admin/coupons/:id', authMiddleware(['ADMIN','BOTH']), (req, res
   couponService.delete(req.params.id);
   res.json({ code: 0, msg: '已删除' });
 });
-app.get('/api/coupons', authMiddleware(['USER']), (req, res) => {
+app.get('/api/coupons', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const coupons = couponService.list(1);
   const claimed = couponService.getUserCoupons(req.user.id);
   const claimedIds = new Set(claimed.map(c => c.coupon_id));
   res.json({ code: 0, data: { available: coupons.filter(c => !claimedIds.has(c.id)), claimed } });
 });
-app.post('/api/coupons/:id/claim', authMiddleware(['USER']), (req, res) => {
+app.post('/api/coupons/:id/claim', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const r = couponService.claim(req.user.id, req.params.id);
   res.json({ code: r.ok ? 0 : 400, msg: r.msg });
 });
 
 // ── 工单 API ─────────────────────────────────────────────
-app.post('/api/tickets', authMiddleware(['USER']), (req, res) => {
+app.post('/api/tickets', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const ticket = ticketService.create(req.user.id, req.body);
   res.json({ code: 0, data: ticket, msg: '工单已提交' });
 });
-app.get('/api/user/tickets', authMiddleware(['USER']), (req, res) => {
+app.get('/api/user/tickets', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   res.json({ code: 0, data: ticketService.list({ user_id: req.user.id }) });
 });
-app.get('/api/user/tickets/:id', authMiddleware(['USER']), (req, res) => {
+app.get('/api/user/tickets/:id', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const ticket = ticketService.get(req.params.id);
   if (!ticket || ticket.user_id !== req.user.id) return res.json({ code: 404, msg: '工单不存在' });
   res.json({ code: 0, data: ticket });
@@ -1761,7 +1772,7 @@ app.get('/api/leaderboard/products', (req, res) => {
 
 // ── 评价增强 API ─────────────────────────────────────────
 // 追评
-app.post('/api/orders/:id/review/additional', authMiddleware(['USER']), (req, res) => {
+app.post('/api/orders/:id/review/additional', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
   const { content } = req.body;
   const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!order) return res.json({ code: 404, msg: '订单不存在' });
@@ -1942,6 +1953,126 @@ app.post('/api/admin/ai/knowledge/import', authMiddleware(['ADMIN']), (req, res)
   });
   logActivity(req.user.id, 'admin', 'IMPORT_AI_KNOWLEDGE', '', null, `导入${count}条`);
   res.json({ code: 0, msg: `成功导入 ${count} 条知识` });
+});
+
+// ── 通知 API ─────────────────────────────────────────────
+app.get('/api/notifications', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
+  const { unread_only, type, limit = 50 } = req.query;
+  res.json({ code: 0, data: notificationService.list(req.user.id, { unreadOnly: unread_only === '1', type, limit: Number(limit) }) });
+});
+app.get('/api/notifications/unread-count', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
+  res.json({ code: 0, data: { count: notificationService.unreadCount(req.user.id) } });
+});
+app.post('/api/notifications/read', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
+  notificationService.markRead(req.user.id, req.body.ids);
+  res.json({ code: 0, msg: '已标记已读' });
+});
+app.delete('/api/notifications/:id', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
+  notificationService.delete(req.user.id, req.params.id);
+  res.json({ code: 0, msg: '已删除' });
+});
+app.delete('/api/notifications/read/all', authMiddleware(['USER','ADMIN','CS','BOTH']), (req, res) => {
+  notificationService.clearRead(req.user.id);
+  res.json({ code: 0, msg: '已清空' });
+});
+app.post('/api/admin/notifications/broadcast', authMiddleware(['ADMIN']), (req, res) => {
+  const { title, content, type = 'SYSTEM' } = req.body;
+  if (!title || !content) return res.json({ code: 400, msg: '标题和内容必填' });
+  notificationService.broadcast('USER', { title, content, type });
+  logActivity(req.user.id, 'admin', 'BROADCAST', '', null, title);
+  res.json({ code: 0, msg: '广播已发送' });
+});
+
+// ── Webhook API ───────────────────────────────────────────
+app.get('/api/admin/webhooks', authMiddleware(['ADMIN']), (req, res) => {
+  res.json({ code: 0, data: webhookService.list() });
+});
+app.post('/api/admin/webhooks', authMiddleware(['ADMIN']), (req, res) => {
+  webhookService.register(req.body);
+  res.json({ code: 0, msg: 'Webhook 已创建' });
+});
+app.put('/api/admin/webhooks/:id', authMiddleware(['ADMIN']), (req, res) => {
+  webhookService.update(req.params.id, req.body);
+  res.json({ code: 0, msg: '已更新' });
+});
+app.delete('/api/admin/webhooks/:id', authMiddleware(['ADMIN']), (req, res) => {
+  webhookService.delete(req.params.id);
+  res.json({ code: 0, msg: '已删除' });
+});
+app.get('/api/admin/webhooks/:id/logs', authMiddleware(['ADMIN']), (req, res) => {
+  res.json({ code: 0, data: webhookService.logs(req.params.id) });
+});
+
+// ── 工作流 API ────────────────────────────────────────────
+app.get('/api/admin/workflows', authMiddleware(['ADMIN']), (req, res) => {
+  res.json({ code: 0, data: workflowEngine.list() });
+});
+app.put('/api/admin/workflows/:id', authMiddleware(['ADMIN']), (req, res) => {
+  workflowEngine.update(req.params.id, req.body);
+  res.json({ code: 0, msg: '已更新' });
+});
+app.get('/api/admin/workflows/:id/logs', authMiddleware(['ADMIN']), (req, res) => {
+  res.json({ code: 0, data: workflowEngine.logs(req.params.id) });
+});
+
+// ── Feature Flags API ─────────────────────────────────────
+app.get('/api/admin/flags', authMiddleware(['ADMIN']), (req, res) => {
+  res.json({ code: 0, data: featureFlags.list() });
+});
+app.put('/api/admin/flags/:key', authMiddleware(['ADMIN']), (req, res) => {
+  featureFlags.update(req.params.key, req.body);
+  res.json({ code: 0, msg: '已更新' });
+});
+app.get('/api/flags', (req, res) => {
+  const flags = featureFlags.list().filter(f => f.enabled);
+  res.json({ code: 0, data: flags.map(f => f.key) });
+});
+
+// ── 漏斗分析 API ──────────────────────────────────────────
+app.post('/api/analytics/track', (req, res) => {
+  const { event, page, referrer, device } = req.body;
+  funnelAnalytics.track(req.user?.id || null, event, { page, referrer, device, ip: req.ip });
+  res.json({ code: 0 });
+});
+app.get('/api/admin/analytics/funnel', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  const { steps, start_date, end_date } = req.query;
+  const stepList = steps ? steps.split(',') : ['page_view', 'add_to_cart', 'create_order', 'pay_order', 'order_completed'];
+  res.json({ code: 0, data: funnelAnalytics.analyze(stepList, start_date, end_date) });
+});
+app.get('/api/admin/analytics/pages', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  res.json({ code: 0, data: funnelAnalytics.topPages() });
+});
+app.get('/api/admin/analytics/devices', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  res.json({ code: 0, data: funnelAnalytics.deviceStats() });
+});
+app.get('/api/admin/analytics/referrers', authMiddleware(['ADMIN','BOTH']), (req, res) => {
+  res.json({ code: 0, data: funnelAnalytics.referrerStats() });
+});
+
+// ── 缓存管理 API ─────────────────────────────────────────
+app.get('/api/admin/cache/stats', authMiddleware(['ADMIN']), (req, res) => {
+  res.json({ code: 0, data: cache.getStats() });
+});
+app.post('/api/admin/cache/clear', authMiddleware(['ADMIN']), (req, res) => {
+  cache.clear();
+  res.json({ code: 0, msg: '缓存已清空' });
+});
+
+// ── 系统状态 API ─────────────────────────────────────────
+app.get('/api/admin/system', authMiddleware(['ADMIN']), (req, res) => {
+  const os = require('os');
+  res.json({ code: 0, data: {
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    cpu: os.loadavg(),
+    platform: os.platform(),
+    nodeVersion: process.version,
+    totalMemory: os.totalmem(),
+    freeMemory: os.freemem(),
+    cpus: os.cpus().length,
+    cacheStats: cache.getStats(),
+    dbSize: require('fs').statSync(require('path').join(__dirname, 'delta.db')).size,
+  }});
 });
 
 // ── 前端路由 ─────────────────────────────────────────────

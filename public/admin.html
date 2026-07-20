@@ -118,6 +118,12 @@
       <div class="menu-item" data-page="tickets" onclick="showPage('tickets')"><span class="icon">📩</span>工单管理</div>
       <div class="menu-item" data-page="promotions" onclick="showPage('promotions')"><span class="icon">🎉</span>活动管理</div>
       <div class="menu-item" data-page="reports" onclick="showPage('reports')"><span class="icon">📊</span>数据报表</div>
+      <div class="menu-item" data-page="notifications" onclick="showPage('notifications')"><span class="icon">🔔</span>通知中心</div>
+      <div class="menu-item" data-page="workflows" onclick="showPage('workflows')"><span class="icon">⚡</span>工作流</div>
+      <div class="menu-item" data-page="webhooks" onclick="showPage('webhooks')"><span class="icon">🔗</span>Webhook</div>
+      <div class="menu-item" data-page="flags" onclick="showPage('flags')"><span class="icon">🏁</span>功能开关</div>
+      <div class="menu-item" data-page="analytics" onclick="showPage('analytics')"><span class="icon">📉</span>漏斗分析</div>
+      <div class="menu-item" data-page="system" onclick="showPage('system')"><span class="icon">🖥️</span>系统状态</div>
       <div class="menu-item" data-page="ai" onclick="showPage(\x27ai\x27)"><span class="icon">🤖</span>AI客服</div>
       <div class="menu-item" data-page="ai" onclick="showPage('ai')"><span class="icon">🤖</span>AI客服</div>
       <div class="menu-item" data-page="logs" onclick="showPage('logs')"><span class="icon">📝</span>活动日志</div>
@@ -255,6 +261,46 @@
         <div id="reportContent"></div>
       </div>
 
+      <!-- 通知中心 -->
+      <div class="page-section" id="pageNotifications">
+        <div class="search-bar"><button class="btn btn-primary btn-sm" onclick="showBroadcastModal()">📢 全体广播</button></div>
+        <div class="card"><div class="table-wrap"><table id="notifTable"><thead><tr><th>ID</th><th>用户</th><th>标题</th><th>类型</th><th>已读</th><th>时间</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <!-- 工作流 -->
+      <div class="page-section" id="pageWorkflows">
+        <div class="card"><div class="card-header"><h3>⚡ 自动化工作流</h3></div><div class="table-wrap"><table id="workflowsTable"><thead><tr><th>ID</th><th>名称</th><th>触发事件</th><th>状态</th><th>运行次数</th><th>上次运行</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <!-- Webhook -->
+      <div class="page-section" id="pageWebhooks">
+        <div class="search-bar"><button class="btn btn-primary btn-sm" onclick="showWebhookModal()">+ 添加 Webhook</button></div>
+        <div class="card"><div class="table-wrap"><table id="webhooksTable"><thead><tr><th>ID</th><th>名称</th><th>类型</th><th>URL</th><th>状态</th><th>最后触发</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <!-- 功能开关 -->
+      <div class="page-section" id="pageFlags">
+        <div class="card"><div class="card-header"><h3>🏁 Feature Flags</h3></div><div class="table-wrap"><table id="flagsTable"><thead><tr><th>Key</th><th>名称</th><th>描述</th><th>状态</th><th>灰度%</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+
+      <!-- 漏斗分析 -->
+      <div class="page-section" id="pageAnalytics">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="card"><div class="card-header"><h3>📉 转化漏斗</h3></div><div class="card-body" id="funnelContent"></div></div>
+          <div class="card"><div class="card-header"><h3>📊 热门页面</h3></div><div class="card-body" id="topPagesContent"></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card"><div class="card-header"><h3>📱 设备分布</h3></div><div class="card-body" id="devicesContent"></div></div>
+          <div class="card"><div class="card-header"><h3>🔗 用户来源</h3></div><div class="card-body" id="referrersContent"></div></div>
+        </div>
+      </div>
+
+      <!-- 系统状态 -->
+      <div class="page-section" id="pageSystem">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;" id="systemCards"></div>
+        <div class="card"><div class="card-header"><h3>💾 缓存状态</h3><button class="btn btn-danger btn-sm" onclick="clearCache()">清空缓存</button></div><div class="card-body" id="cacheContent"></div></div>
+      </div>
+
       <!-- AI客服 -->
       <div class="page-section" id="pageAi">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -304,7 +350,7 @@ async function adminLogin(){const u=document.getElementById('adminUser').value,p
 function adminLogout(){token=null;adminInfo=null;localStorage.removeItem('delta_admin_token');document.getElementById('loginPage').style.display='flex';document.getElementById('mainApp').style.display='none';}
 function enterAdmin(){document.getElementById('loginPage').style.display='none';document.getElementById('mainApp').style.display='block';document.getElementById('adminName').textContent=adminInfo.nickname||adminInfo.username;document.getElementById('adminAvatar').textContent=(adminInfo.nickname||adminInfo.username)[0];showPage('dashboard'); connectAdminWS();}
 
-const pageTitles={dashboard:'仪表盘',orders:'订单管理',players:'接单员管理',users:'用户管理',products:'商品管理',categories:'分类管理',banners:'轮播图管理',announcements:'公告管理',withdrawals:'提现管理',configs:'系统配置',logs:'活动日志',ai:'AI客服配置',screen:'数据大屏',coupons:'优惠券',tickets:'工单管理',promotions:'活动管理',reports:'数据报表'};
+const pageTitles={dashboard:'仪表盘',orders:'订单管理',players:'接单员管理',users:'用户管理',products:'商品管理',categories:'分类管理',banners:'轮播图管理',announcements:'公告管理',withdrawals:'提现管理',configs:'系统配置',logs:'活动日志',ai:'AI客服配置',screen:'数据大屏',coupons:'优惠券',tickets:'工单管理',promotions:'活动管理',reports:'数据报表',notifications:'通知中心',workflows:'工作流',webhooks:'Webhook',flags:'功能开关',analytics:'漏斗分析',system:'系统状态'};
 function showPage(p){document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));document.getElementById('page'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('active');document.querySelectorAll('.menu-item').forEach(m=>m.classList.remove('active'));document.querySelector(`.menu-item[data-page="${p}"]`)?.classList.add('active');document.getElementById('pageTitle').textContent=pageTitles[p]||p;({dashboard:loadDashboard,orders:loadAdminOrders,players:loadPlayers,users:loadUsers,products:loadAdminProducts,categories:loadAdminCategories,banners:loadBanners,announcements:loadAnnouncements,withdrawals:loadWithdrawals,configs:loadConfigs,logs:loadLogs})[p]?.();}
 
 async function loadDashboard(){
@@ -1104,3 +1150,156 @@ async function loadReport(type) {
       ${d.dailyTrend.length ? `<div class="card"><div class="card-header"><h3>每日趋势</h3></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>订单数</th><th>收入</th></tr></thead><tbody>${d.dailyTrend.map(t=>`<tr><td>${t.date}</td><td>${t.orders}</td><td>¥${t.revenue.toFixed(0)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}`;
   }
 }
+
+// ═══ 通知中心 ═══
+async function loadNotifs() {
+  const r = await api('/notifications?limit=100');
+  if (r.code !== 0) return;
+  const typeMap = { SYSTEM:'系统', ORDER:'订单', PROMOTION:'活动', TICKET:'工单', WITHDRAW:'提现', COUPON:'优惠券' };
+  document.querySelector('#notifTable tbody').innerHTML = r.data.map(n => `<tr>
+    <td>${n.id}</td><td>${n.user_id}</td><td>${n.title}</td>
+    <td><span class="badge badge-info">${typeMap[n.type]||n.type}</span></td>
+    <td>${n.is_read?'✅':'❌'}</td>
+    <td style="font-size:12px;color:var(--text-muted);">${new Date(n.created_at).toLocaleString('zh-CN')}</td>
+  </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">暂无通知</td></tr>';
+}
+
+function showBroadcastModal() {
+  openModal(`<div class="modal-title">📢 全体广播</div>
+    <div class="form-group"><label class="form-label">标题</label><input class="form-input" id="broadcastTitle"></div>
+    <div class="form-group"><label class="form-label">内容</label><textarea class="form-input" id="broadcastContent"></textarea></div>
+    <div style="display:flex;gap:10px;"><button class="btn btn-primary" style="flex:1;" onclick="sendBroadcast()">发送</button><button class="btn btn-ghost" onclick="closeModal()">取消</button></div>`);
+}
+
+async function sendBroadcast() {
+  const r = await api('/admin/notifications/broadcast', { method:'POST', body: JSON.stringify({ title: document.getElementById('broadcastTitle').value, content: document.getElementById('broadcastContent').value }) });
+  showToast(r.msg); if (r.code === 0) closeModal();
+}
+
+// ═══ 工作流 ═══
+async function loadWorkflows() {
+  const r = await api('/admin/workflows');
+  if (r.code !== 0) return;
+  document.querySelector('#workflowsTable tbody').innerHTML = r.data.map(w => `<tr>
+    <td>${w.id}</td><td>${w.name}</td><td><span class="badge badge-primary">${w.trigger_event}</span></td>
+    <td>${w.status?'✅':'❌'}</td><td>${w.run_count}</td>
+    <td style="font-size:12px;color:var(--text-muted);">${w.last_run_at?new Date(w.last_run_at).toLocaleString('zh-CN'):'从未'}</td>
+    <td><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" onclick="toggleWorkflow(${w.id},${w.status?0:1})">${w.status?'停用':'启用'}</button><button class="btn btn-outline btn-sm" onclick="viewWorkflowLogs(${w.id})">日志</button></div></td>
+  </tr>`).join('');
+}
+
+async function toggleWorkflow(id, status) { await api(`/admin/workflows/${id}`, { method:'PUT', body: JSON.stringify({ status }) }); loadWorkflows(); }
+async function viewWorkflowLogs(id) {
+  const r = await api(`/admin/workflows/${id}/logs`);
+  if (r.code !== 0) return;
+  openModal(`<div class="modal-title">工作流日志 #${id}</div><div style="max-height:400px;overflow-y:auto;">${r.data.map(l => `<div style="padding:8px;border-bottom:1px solid var(--border-light);font-size:12px;"><span style="color:${l.success?'var(--success)':'var(--danger)'};">${l.success?'✅':'❌'}</span> ${new Date(l.created_at).toLocaleString('zh-CN')} - ${l.result}</div>`).join('')||'<div style="color:var(--text-muted);padding:20px;">暂无日志</div>'}</div><button class="btn btn-ghost btn-block" onclick="closeModal()" style="margin-top:12px;">关闭</button>`);
+}
+
+// ═══ Webhook ═══
+async function loadWebhooks() {
+  const r = await api('/admin/webhooks');
+  if (r.code !== 0) return;
+  const typeMap = { FEISHU:'飞书', DINGTALK:'钉钉', WECOM:'企业微信', CUSTOM:'自定义' };
+  document.querySelector('#webhooksTable tbody').innerHTML = r.data.map(w => `<tr>
+    <td>${w.id}</td><td>${w.name}</td><td><span class="badge badge-info">${typeMap[w.type]||w.type}</span></td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${w.url}</td>
+    <td>${w.status?'✅':'❌'}</td>
+    <td style="font-size:12px;color:var(--text-muted);">${w.last_triggered_at?new Date(w.last_triggered_at).toLocaleString('zh-CN'):'从未'}</td>
+    <td><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" onclick="testWebhook(${w.id})">测试</button><button class="btn btn-danger btn-sm" onclick="deleteWebhook(${w.id})">删除</button></div></td>
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">暂无 Webhook</td></tr>';
+}
+
+function showWebhookModal() {
+  openModal(`<div class="modal-title">添加 Webhook</div>
+    <div class="form-group"><label class="form-label">名称</label><input class="form-input" id="whName"></div>
+    <div class="form-group"><label class="form-label">类型</label><select class="form-input" id="whType"><option value="CUSTOM">自定义</option><option value="FEISHU">飞书</option><option value="DINGTALK">钉钉</option><option value="WECOM">企业微信</option></select></div>
+    <div class="form-group"><label class="form-label">URL</label><input class="form-input" id="whUrl" placeholder="https://..."></div>
+    <div class="form-group"><label class="form-label">监听事件 (逗号分隔, *为全部)</label><input class="form-input" id="whEvents" placeholder="ORDER_PAID,ORDER_COMPLETED" value="*"></div>
+    <div style="display:flex;gap:10px;"><button class="btn btn-primary" style="flex:1;" onclick="saveWebhook()">创建</button><button class="btn btn-ghost" onclick="closeModal()">取消</button></div>`);
+}
+
+async function saveWebhook() {
+  const r = await api('/admin/webhooks', { method:'POST', body: JSON.stringify({ name: document.getElementById('whName').value, type: document.getElementById('whType').value, url: document.getElementById('whUrl').value, events: document.getElementById('whEvents').value.split(',').map(s=>s.trim()) }) });
+  showToast(r.msg); if (r.code === 0) { closeModal(); loadWebhooks(); }
+}
+async function deleteWebhook(id) { if (!confirm('确定删除？')) return; await api(`/admin/webhooks/${id}`, { method:'DELETE' }); loadWebhooks(); }
+async function testWebhook(id) { showToast('测试已发送'); }
+
+// ═══ 功能开关 ═══
+async function loadFlags() {
+  const r = await api('/admin/flags');
+  if (r.code !== 0) return;
+  document.querySelector('#flagsTable tbody').innerHTML = r.data.map(f => `<tr>
+    <td style="font-family:monospace;font-weight:600;">${f.key}</td><td>${f.name}</td><td style="font-size:12px;color:var(--text-muted);">${f.description}</td>
+    <td><label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" ${f.enabled?'checked':''} onchange="toggleFlag('${f.key}',this.checked?1:0)"><span class="badge ${f.enabled?'badge-success':'badge-gray'}">${f.enabled?'开启':'关闭'}</span></label></td>
+    <td>${f.rollout_percent}%</td>
+    <td><button class="btn btn-outline btn-sm" onclick="editFlag('${f.key}',${f.rollout_percent})">编辑</button></td>
+  </tr>`).join('');
+}
+
+async function toggleFlag(key, enabled) { await api(`/admin/flags/${key}`, { method:'PUT', body: JSON.stringify({ enabled }) }); showToast(enabled?'已开启':'已关闭'); loadFlags(); }
+function editFlag(key, percent) {
+  openModal(`<div class="modal-title">编辑: ${key}</div>
+    <div class="form-group"><label class="form-label">灰度比例 (0-100%)</label><input class="form-input" id="flagPercent" type="number" min="0" max="100" value="${percent}"></div>
+    <div style="display:flex;gap:10px;"><button class="btn btn-primary" style="flex:1;" onclick="saveFlag('${key}')">保存</button><button class="btn btn-ghost" onclick="closeModal()">取消</button></div>`);
+}
+async function saveFlag(key) { await api(`/admin/flags/${key}`, { method:'PUT', body: JSON.stringify({ rollout_percent: Number(document.getElementById('flagPercent').value) }) }); showToast('已更新'); closeModal(); loadFlags(); }
+
+// ═══ 漏斗分析 ═══
+async function loadAnalytics() {
+  const [funnel, pages, devices, refs] = await Promise.all([
+    api('/admin/analytics/funnel'),
+    api('/admin/analytics/pages'),
+    api('/admin/analytics/devices'),
+    api('/admin/analytics/referrers')
+  ]);
+  if (funnel.code === 0) {
+    const colors = ['#4F46E5','#7C3AED','#EC4899','#F59E0B','#10B981'];
+    document.getElementById('funnelContent').innerHTML = funnel.data.map((s, i) => `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>${s.step}</span><span class="font-bold">${s.count}</span></div>
+        <div style="height:24px;background:var(--border-light);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${s.conversionRate||'0%'};background:${colors[i%colors.length]};border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:11px;color:white;">${s.conversionRate||'0%'}</div></div>
+      </div>
+    `).join('') || '<div style="color:var(--text-muted);">暂无数据</div>';
+  }
+  if (pages.code === 0) {
+    document.getElementById('topPagesContent').innerHTML = pages.data.map((p, i) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px;"><span>${i+1}. ${p.page}</span><span>${p.views}次 (${p.unique_users}人)</span></div>`).join('') || '<div style="color:var(--text-muted);">暂无数据</div>';
+  }
+  if (devices.code === 0) {
+    document.getElementById('devicesContent').innerHTML = devices.data.map(d => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px;"><span>${d.device||'未知'}</span><span>${d.count}次</span></div>`).join('') || '<div style="color:var(--text-muted);">暂无数据</div>';
+  }
+  if (refs.code === 0) {
+    document.getElementById('referrersContent').innerHTML = refs.data.map(r => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:13px;"><span style="overflow:hidden;text-overflow:ellipsis;max-width:200px;">${r.referrer}</span><span>${r.count}次</span></div>`).join('') || '<div style="color:var(--text-muted);">暂无数据</div>';
+  }
+}
+
+// ═══ 系统状态 ═══
+async function loadSystem() {
+  const r = await api('/admin/system');
+  if (r.code !== 0) return;
+  const d = r.data;
+  const memMB = (d.memory.rss / 1024 / 1024).toFixed(1);
+  const totalGB = (d.totalMemory / 1024 / 1024 / 1024).toFixed(1);
+  const freeGB = (d.freeMemory / 1024 / 1024 / 1024).toFixed(1);
+  const dbMB = (d.dbSize / 1024 / 1024).toFixed(2);
+  const uptimeH = (d.uptime / 3600).toFixed(1);
+  document.getElementById('systemCards').innerHTML = [
+    { l: '运行时间', v: `${uptimeH}h`, e: '⏱️' },
+    { l: '内存使用', v: `${memMB}MB`, e: '💾' },
+    { l: 'CPU 负载', v: d.cpu.map(c=>c.toFixed(2)).join(' / '), e: '🖥️' },
+    { l: 'Node 版本', v: d.nodeVersion, e: '🟢' },
+    { l: 'CPU 核心', v: d.cpus, e: '⚡' },
+    { l: '数据库', v: `${dbMB}MB`, e: '🗄️' },
+  ].map(i => `<div class="stat-card" style="text-align:center;"><div style="font-size:24px;margin-bottom:8px;">${i.e}</div><div class="value">${i.v}</div><div class="label">${i.l}</div></div>`).join('');
+
+  const cs = d.cacheStats;
+  document.getElementById('cacheContent').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;">${cs.size}</div><div style="font-size:11px;color:var(--text-muted);">缓存项</div></div>
+      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--success);">${cs.hits}</div><div style="font-size:11px;color:var(--text-muted);">命中</div></div>
+      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--danger);">${cs.misses}</div><div style="font-size:11px;color:var(--text-muted);">未命中</div></div>
+      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:var(--primary);">${cs.hitRate}</div><div style="font-size:11px;color:var(--text-muted);">命中率</div></div>
+    </div>`;
+}
+
+async function clearCache() { await api('/admin/cache/clear', { method:'POST' }); showToast('缓存已清空'); loadSystem(); }
