@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>三角洲护航 - 管理后台</title>
+  <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     body { display: flex; min-height: 100vh; }
     .sidebar { width: 240px; background: linear-gradient(180deg, #1E1B4B, #312E81); color: white; display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; z-index: 100; }
@@ -124,8 +126,12 @@
       <div class="page-section active" id="pageDashboard">
         <div class="stats-grid" id="statsGrid"></div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;">
-          <div class="card"><div class="card-header"><h3>📈 近7天收入趋势</h3></div><div class="chart-bar" id="revenueChart"></div></div>
+          <div class="card"><div class="card-header"><h3>📈 近7天收入趋势</h3></div><div class="card-body" style="height:260px;"><canvas id="revenueChartCanvas"></canvas></div></div>
+          <div class="card"><div class="card-header"><h3>🍩 分类销量分布</h3></div><div class="card-body" style="height:260px;"><canvas id="categoryChartCanvas"></canvas></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
           <div class="card"><div class="card-header"><h3>🏆 热门商品</h3></div><div class="card-body"><div class="hot-list" id="hotProductsList"></div></div></div>
+          <div class="card"><div class="card-header"><h3>📊 订单状态分布</h3></div><div class="card-body" style="height:200px;"><canvas id="orderStatusCanvas"></canvas></div></div>
         </div>
         <div class="card"><div class="card-header"><h3>最近订单</h3></div><div class="table-wrap"><table id="recentOrdersTable"><thead><tr><th>订单号</th><th>商品</th><th>用户</th><th>金额</th><th>状态</th><th>时间</th></tr></thead><tbody></tbody></table></div></div>
       </div>
@@ -136,6 +142,7 @@
           <input class="form-input" id="orderSearch" placeholder="搜索订单号/商品/用户">
           <select class="form-input" id="orderStatusFilter"><option value="">全部状态</option><option value="PENDING">待支付</option><option value="PAID">待接单</option><option value="ASSIGNED">已接单</option><option value="IN_PROGRESS">进行中</option><option value="COMPLETED">已完成</option><option value="REFUNDING">退款中</option><option value="REFUNDED">已退款</option><option value="CANCELLED">已取消</option></select>
           <button class="btn btn-primary btn-sm" onclick="loadAdminOrders()">搜索</button>
+          <button class="btn btn-outline btn-sm" onclick="exportData('orders')">📥 导出CSV</button>
         </div>
         <div class="card"><div class="table-wrap"><table id="ordersTable"><thead><tr><th>订单号</th><th>商品</th><th>用户</th><th>接单员</th><th>金额</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table></div></div>
       </div>
@@ -152,7 +159,7 @@
 
       <!-- 用户 -->
       <div class="page-section" id="pageUsers">
-        <div class="search-bar"><input class="form-input" id="userSearch" placeholder="搜索手机号/昵称"><button class="btn btn-primary btn-sm" onclick="loadUsers()">搜索</button></div>
+        <div class="search-bar"><input class="form-input" id="userSearch" placeholder="搜索手机号/昵称"><button class="btn btn-primary btn-sm" onclick="loadUsers()">搜索</button><button class="btn btn-outline btn-sm" onclick="exportData('users')">📥 导出CSV</button></div>
         <div class="card"><div class="table-wrap"><table id="usersTable"><thead><tr><th>ID</th><th>昵称</th><th>手机号</th><th>余额</th><th>消费</th><th>订单数</th><th>最后登录</th></tr></thead><tbody></tbody></table></div></div>
       </div>
 
@@ -238,12 +245,30 @@ async function loadDashboard(){
   if(s.pendingOrders>0){document.getElementById('orderBadge').textContent=s.pendingOrders;document.getElementById('orderBadge').style.display='';}
   if(s.pendingPlayers>0){document.getElementById('playerBadge').textContent=s.pendingPlayers;document.getElementById('playerBadge').style.display='';}
   if(s.pendingWithdrawals>0){document.getElementById('withdrawBadge').textContent=s.pendingWithdrawals;document.getElementById('withdrawBadge').style.display='';}
-  // 图表
-  const chart=document.getElementById('revenueChart');
-  const max=Math.max(...r.data.revenueChart.map(d=>d.amount),1);
-  chart.innerHTML=r.data.revenueChart.map(d=>{const h=Math.max(4,(d.amount/max)*100);const day=new Date(d.date).toLocaleDateString('zh-CN',{weekday:'short'});return`<div class="chart-col"><div class="val">¥${d.amount.toFixed(0)}</div><div class="bar" style="height:${h}px"></div><div class="label">${day}</div></div>`;}).join('')||'<div style="padding:20px;color:var(--text-muted);">暂无数据</div>';
+  // Chart.js 图表
+  if (r.data.revenueChart.length) renderRevenueChart(r.data.revenueChart);
+  // 订单状态饼图
+  const statusCanvas = document.getElementById('orderStatusCanvas');
+  if (statusCanvas) {
+    const statusData = [
+      { label: '待接单', value: s.pendingOrders, color: '#F59E0B' },
+      { label: '进行中', value: s.activeOrders, color: '#3B82F6' },
+      { label: '已完成', value: s.completedOrders, color: '#10B981' },
+      { label: '退款中', value: s.pendingRefunds, color: '#EF4444' }
+    ].filter(d => d.value > 0);
+    if (statusData.length) {
+      new Chart(statusCanvas.getContext('2d'), {
+        type: 'pie',
+        data: { labels: statusData.map(d => d.label), datasets: [{ data: statusData.map(d => d.value), backgroundColor: statusData.map(d => d.color), borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 10, font: { size: 11 } } } } }
+      });
+    }
+  }
   // 热门
   document.getElementById('hotProductsList').innerHTML=r.data.hotProducts.map((p,i)=>`<div class="hot-item"><div class="rank">${i+1}</div><div class="name">${p.title}</div><div class="sales">${p.sales}单</div></div>`).join('');
+  // 分类销量图
+  const prodRes = await api('/admin/products?limit=100');
+  if (prodRes.code === 0) renderCategoryChart(prodRes.data);
   // 最近订单
   document.querySelector('#recentOrdersTable tbody').innerHTML=r.data.recentOrders.map(o=>`<tr><td style="font-family:monospace;font-size:12px;">${o.order_no}</td><td>${o.product_title}</td><td>${o.user_nickname||'-'}</td><td class="font-bold">¥${o.total_amount}</td><td><span class="badge ${sClass[o.order_status]}">${sMap[o.order_status]}</span></td><td style="font-size:12px;color:var(--text-muted);">${new Date(o.created_at).toLocaleString('zh-CN')}</td></tr>`).join('');
 }
@@ -286,6 +311,97 @@ async function loadConfigs(){const r=await api('/admin/configs');if(r.code!==0)r
 async function saveConfigs(){const configs=Array.from(document.querySelectorAll('.config-input')).map(el=>({key:el.dataset.key,value:el.value}));const r=await api('/admin/configs',{method:'PUT',body:JSON.stringify({configs})});showToast(r.msg);}
 
 async function loadLogs(){const r=await api('/admin/logs?limit=50');if(r.code!==0)return;document.querySelector('#logsTable tbody').innerHTML=r.data.map(l=>`<tr><td style="font-size:12px;color:var(--text-muted);">${new Date(l.created_at).toLocaleString('zh-CN')}</td><td>${l.user_type}#${l.user_id||'-'}</td><td><span class="badge badge-info">${l.action}</span></td><td>${l.target_type}${l.target_id?'#'+l.target_id:''}</td><td style="font-size:12px;">${l.detail||'-'}</td></tr>`).join('');}
+
+// ── 数据导出 ─────────────────────────────────────
+function exportData(type) {
+  const token = localStorage.getItem('delta_admin_token');
+  const a = document.createElement('a');
+  a.href = `/api/admin/export/${type}?token=${token}`;
+  a.download = `${type}.csv`;
+  // 用 fetch 下载（带认证）
+  fetch(`/api/admin/export/${type}`, { headers: { 'Authorization': `Bearer ${token}` } })
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('导出成功');
+    })
+    .catch(() => showToast('导出失败'));
+}
+
+// ── Chart.js 图表 ─────────────────────────────────
+let revenueChartInstance = null;
+function renderRevenueChart(data) {
+  const canvas = document.getElementById('revenueChartCanvas');
+  if (!canvas) return;
+  if (revenueChartInstance) revenueChartInstance.destroy();
+  const ctx = canvas.getContext('2d');
+  revenueChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(d => new Date(d.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })),
+      datasets: [{
+        label: '收入 (¥)',
+        data: data.map(d => d.amount),
+        borderColor: '#FF6B35',
+        backgroundColor: 'rgba(255, 107, 53, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#FF6B35'
+      }, {
+        label: '订单数',
+        data: data.map(d => d.count),
+        borderColor: '#4F46E5',
+        backgroundColor: 'rgba(79, 70, 229, 0.05)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#4F46E5',
+        yAxisID: 'y1'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } } },
+      scales: {
+        y: { beginAtZero: true, position: 'left', grid: { color: '#F3F4F6' } },
+        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+let categoryChartInstance = null;
+function renderCategoryChart(products) {
+  const canvas = document.getElementById('categoryChartCanvas');
+  if (!canvas || !products.length) return;
+  if (categoryChartInstance) categoryChartInstance.destroy();
+  // 按分类统计销量
+  const catMap = {};
+  products.forEach(p => { const c = p.category_name || '其他'; catMap[c] = (catMap[c] || 0) + p.sales; });
+  const labels = Object.keys(catMap);
+  const values = Object.values(catMap);
+  const colors = ['#FF6B35','#4F46E5','#059669','#F59E0B','#EC4899','#8B5CF6','#06B6D4','#DC2626'];
+  categoryChartInstance = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 12, font: { size: 11 } } } },
+      cutout: '60%'
+    }
+  });
+}
 
 (async()=>{if(token){try{const r=await api('/admin/dashboard');if(r.code===0){adminInfo=JSON.parse(atob(token.split('.')[1]));enterAdmin();}else adminLogout();}catch(e){adminLogout();}}})();
 </script>

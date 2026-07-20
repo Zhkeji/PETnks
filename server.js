@@ -209,6 +209,8 @@ db.exec(`
     cs_id INTEGER,
     order_id INTEGER,
     session_type TEXT DEFAULT 'USER_PLAYER' CHECK(session_type IN ('USER_PLAYER','USER_CS','ORDER')),
+    id1 INTEGER DEFAULT 0,
+    id2 INTEGER DEFAULT 0,
     status TEXT DEFAULT 'ACTIVE',
     last_message TEXT DEFAULT '',
     last_message_at DATETIME,
@@ -1206,6 +1208,138 @@ app.get('/api/admin/logs', authMiddleware(['ADMIN', 'BOTH']), (req, res) => {
   const sql = 'SELECT * FROM activity_logs ORDER BY created_at DESC';
   res.json({ code: 0, ...paginate(sql, [], page, limit) });
 });
+
+// ── 聊天 API ─────────────────────────────────────────────
+// 获取或创建聊天会话
+app.post('/api/chat/session', authMiddleware(['USER']), (req, res) => {
+  const { target_type, target_id, order_id } = req.body; // target_type: PLAYER/CS
+  const userId = req.user.id;
+  let session;
+
+  if (target_type === 'CS') {
+    // 找客服
+    const cs = db.prepare("SELECT id FROM admins WHERE role IN ('CS','BOTH') AND status = 1 LIMIT 1").get();
+    if (!cs) return res.json({ code: 400, msg: '暂无在线客服' });
+    const id1 = Math.min(userId, cs.id + 100000);
+    const id2 = Math.max(userId, cs.id + 100000);
+    session = db.prepare('SELECT * FROM chat_sessions WHERE id1 = ? AND id2 = ? AND session_type = ?').get(id1, id2, 'USER_CS');
+    if (!session) {
+      const r = db.prepare('INSERT INTO chat_sessions (user_id, cs_id, session_type, id1, id2) VALUES (?,?,?,?,?)').run(userId, cs.id, 'USER_CS', id1, id2);
+      session = db.prepare('SELECT * FROM chat_sessions WHERE id = ?').get(r.lastInsertRowid);
+    }
+  } else if (target_type === 'PLAYER' && target_id) {
+    const player = db.prepare('SELECT user_id FROM players WHERE id = ?').get(target_id);
+    if (!player) return res.json({ code: 400, msg: '接单员不存在' });
+    const id1 = Math.min(userId, player.user_id);
+    const id2 = Math.max(userId, player.user_id);
+    session = db.prepare('SELECT * FROM chat_sessions WHERE id1 = ? AND id2 = ?').get(id1, id2);
+    if (!session) {
+      const r = db.prepare('INSERT INTO chat_sessions (user_id, player_id, session_type, id1, id2, order_id) VALUES (?,?,?,?,?,?)').run(userId, target_id, 'USER_PLAYER', id1, id2, order_id || null);
+      session = db.prepare('SELECT * FROM chat_sessions WHERE id = ?').get(r.lastInsertRowid);
+    }
+  }
+  if (!session) return res.json({ code: 400, msg: '参数错误' });
+  res.json({ code: 0, data: session });
+});
+
+// 获取会话列表
+app.get('/api/chat/sessions', authMiddleware(['USER']), (req, res) => {
+  const userId = req.user.id;
+  const sessions = db.prepare(`
+    SELECT cs.*, 
+      CASE WHEN cs.session_type = 'USER_CS' THEN '在线客服'
+           ELSE p.real_name END as target_name,
+      (SELECT COUNT(*) FROM chat_messages WHERE session_id = cs.id AND is_read = 0 AND sender_id != ?) as unread
+    FROM chat_sessions cs
+    LEFT JOIN players p ON cs.player_id = p.id
+    WHERE cs.user_id = ? OR cs.player_id IN (SELECT id FROM players WHERE user_id = ?)
+    ORDER BY cs.last_message_at DESC
+  `).all(userId, userId, userId);
+  res.json({ code: 0, data: sessions });
+});
+
+// 获取消息
+app.get('/api/chat/messages/:sessionId', authMiddleware(['USER']), (req, res) => {
+  const { before, limit = 50 } = req.query;
+  let sql = 'SELECT * FROM chat_messages WHERE session_id = ?';
+  const params = [req.params.sessionId];
+  if (before) { sql += ' AND id < ?'; params.push(before); }
+  sql += ' ORDER BY id DESC LIMIT ?';
+  params.push(Number(limit));
+  const messages = db.prepare(sql).all(...params).reverse();
+  // 标记已读
+  db.prepare('UPDATE chat_messages SET is_read = 1 WHERE session_id = ? AND sender_id != ? AND is_read = 0').run(req.params.sessionId, req.user.id);
+  db.prepare('UPDATE chat_sessions SET unread_count = 0 WHERE id = ?').run(req.params.sessionId);
+  res.json({ code: 0, data: messages });
+});
+
+// 发送消息
+app.post('/api/chat/send', authMiddleware(['USER']), (req, res) => {
+  const { session_id, content, msg_type = 'TEXT' } = req.body;
+  if (!session_id || !content) return res.json({ code: 400, msg: '参数不完整' });
+  const session = db.prepare('SELECT * FROM chat_sessions WHERE id = ?').get(session_id);
+  if (!session) return res.json({ code: 404, msg: '会话不存在' });
+
+  const r = db.prepare('INSERT INTO chat_messages (session_id, sender_type, sender_id, sender_name, msg_type, content) VALUES (?,?,?,?,?,?)').run(
+    session_id, req.user.type === 'user' ? 'USER' : 'PLAYER', req.user.id, req.user.username || '', msg_type, content
+  );
+  db.prepare('UPDATE chat_sessions SET last_message = ?, last_message_at = CURRENT_TIMESTAMP, unread_count = unread_count + 1 WHERE id = ?').run(content.slice(0, 100), session_id);
+
+  // WebSocket 通知
+  const targetId = session.user_id === req.user.id ? (session.player_id ? db.prepare('SELECT user_id FROM players WHERE id = ?').get(session.player_id)?.user_id : session.cs_id + 100000) : session.user_id;
+  notifyUser(targetId, { type: 'new_chat_message', session_id, content, sender: req.user.username });
+
+  res.json({ code: 0, data: { id: r.lastInsertRowid } });
+});
+
+// ── 数据导出 API ─────────────────────────────────────────
+function toCsv(headers, rows) {
+  const escape = (v) => {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+  return '\uFEFF' + headers.join(',') + '\n' + rows.map(r => r.map(escape).join(',')).join('\n');
+}
+
+app.get('/api/admin/export/orders', authMiddleware(['ADMIN', 'BOTH']), (req, res) => {
+  const { status, start_date, end_date } = req.query;
+  let sql = 'SELECT o.order_no, o.product_title, u.nickname as user, u.phone, p.real_name as player, o.price, o.quantity, o.total_amount, o.pay_method, o.order_status, o.created_at, o.pay_time, o.complete_time FROM orders o LEFT JOIN users u ON o.user_id = u.id LEFT JOIN players p ON o.player_id = p.id WHERE 1=1';
+  const params = [];
+  if (status) { sql += ' AND o.order_status = ?'; params.push(status); }
+  if (start_date) { sql += ' AND o.created_at >= ?'; params.push(start_date); }
+  if (end_date) { sql += ' AND o.created_at <= ?'; params.push(end_date + ' 23:59:59'); }
+  sql += ' ORDER BY o.created_at DESC';
+  const orders = db.prepare(sql).all(...params);
+  const headers = ['订单号','商品','用户','手机号','接单员','单价','数量','总额','支付方式','状态','创建时间','支付时间','完成时间'];
+  const csv = toCsv(headers, orders.map(o => [o.order_no,o.product_title,o.user,o.phone,o.player,o.price,o.quantity,o.total_amount,o.pay_method,o.order_status,o.created_at,o.pay_time,o.complete_time]));
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename=orders.csv');
+  res.send(csv);
+});
+
+app.get('/api/admin/export/users', authMiddleware(['ADMIN', 'BOTH']), (req, res) => {
+  const users = db.prepare('SELECT id, phone, nickname, balance, total_spent, order_count, last_login_at, created_at FROM users ORDER BY created_at DESC').all();
+  const headers = ['ID','手机号','昵称','余额','累计消费','订单数','最后登录','注册时间'];
+  const csv = toCsv(headers, users.map(u => [u.id,u.phone,u.nickname,u.balance,u.total_spent,u.order_count,u.last_login_at,u.created_at]));
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename=users.csv');
+  res.send(csv);
+});
+
+app.get('/api/admin/export/transactions', authMiddleware(['ADMIN', 'BOTH']), (req, res) => {
+  const txns = db.prepare(`SELECT t.*, u.phone, u.nickname FROM transactions t JOIN users u ON t.user_id = u.id ORDER BY t.created_at DESC`).all();
+  const headers = ['ID','手机号','昵称','类型','金额','余额前','余额后','关联订单','备注','时间'];
+  const csv = toCsv(headers, txns.map(t => [t.id,t.phone,t.nickname,t.type,t.amount,t.balance_before,t.balance_after,t.order_id,t.remark,t.created_at]));
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename=transactions.csv');
+  res.send(csv);
+});
+
+// ── PWA 图标 (SVG) ───────────────────────────────────────
+app.get('/icon-192.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-192.svg')));
+app.get('/icon-512.png', (req, res) => res.sendFile(path.join(__dirname, 'public', 'icon-192.svg')));
 
 // ── 前端路由 ─────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
