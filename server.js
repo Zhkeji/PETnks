@@ -6,8 +6,17 @@ const path = require('path');
 const cors = require('cors');
 const compression = require('compression');
 const helmet = require('helmet');
+const multer = require('multer');
 const { WebSocketServer } = require('ws');
 const http = require('http');
+
+// 模块
+const SMSService = require('./modules/sms');
+const UploadService = require('./modules/upload');
+const HealthCheck = require('./modules/health');
+const BackupService = require('./modules/backup');
+const InviteService = require('./modules/invite');
+const { requirePermission, getAllPermissions, getAllRoles } = require('./modules/rbac');
 
 const app = express();
 const server = http.createServer(app);
@@ -395,6 +404,31 @@ function initDefaultData() {
 
 initDefaultData();
 
+// ── 初始化模块 ───────────────────────────────────────────
+const sms = new SMSService(db, { enabled: false, provider: 'mock' });
+const upload = new UploadService({ uploadPath: path.join(__dirname, 'uploads'), maxSize: 5 });
+const health = new HealthCheck(db);
+const backup = new BackupService(path.join(__dirname, 'delta.db'), path.join(__dirname, 'backups'));
+const invite = new InviteService(db);
+
+// multer 配置
+const uploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+// 启动自动备份（每24小时）
+backup.startAutoBackup(24);
+
+// 请求监控中间件
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    health.recordRequest(Date.now() - start, res.statusCode >= 500);
+  });
+  next();
+});
+
 // ── WebSocket 聊天 ───────────────────────────────────────
 const wss = new WebSocketServer({ server, path: '/ws' });
 const wsClients = new Map(); // userId -> ws
@@ -528,21 +562,38 @@ app.post('/api/admin/login', rateLimit(300000, 10), (req, res) => {
   res.json({ code: 0, data: { token, admin: { id: admin.id, username: admin.username, nickname: admin.nickname, role: admin.role, avatar: admin.avatar } } });
 });
 
-app.post('/api/user/login', rateLimit(60000, 10), (req, res) => {
-  const { phone, code } = req.body;
+app.post('/api/user/login', rateLimit(60000, 10), async (req, res) => {
+  const { phone, code, invite_code } = req.body;
   if (!phone) return res.json({ code: 400, msg: '请输入手机号' });
   if (!/^1\d{10}$/.test(phone)) return res.json({ code: 400, msg: '手机号格式不正确' });
-  if (code !== '123456' && (!code || code.length !== 6)) return res.json({ code: 400, msg: '验证码错误' });
+
+  // 验证码校验
+  const smsEnabled = db.prepare("SELECT value FROM configs WHERE key = 'sms_enabled'").get()?.value === '1';
+  if (smsEnabled) {
+    const verifyResult = sms.verify(phone, code, 'LOGIN');
+    if (!verifyResult.valid) return res.json({ code: 400, msg: verifyResult.msg });
+  } else {
+    // 模拟模式：123456 或任意6位
+    if (code !== '123456' && (!code || code.length !== 6)) return res.json({ code: 400, msg: '验证码错误' });
+  }
 
   let user = db.prepare('SELECT * FROM users WHERE phone = ?').get(phone);
+  let isNew = false;
   if (!user) {
-    const result = db.prepare('INSERT INTO users (phone, nickname) VALUES (?, ?)').run(phone, '用户' + phone.slice(-4));
+    const inviteCode = invite.generateCode();
+    const result = db.prepare('INSERT INTO users (phone, nickname, invite_code) VALUES (?, ?, ?)').run(phone, '用户' + phone.slice(-4), inviteCode);
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+    isNew = true;
+
+    // 处理邀请
+    if (invite_code) {
+      invite.processInvite(user.id, invite_code);
+    }
   }
   db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
   const token = jwt.sign({ id: user.id, phone: user.phone, role: 'USER', type: 'user', username: user.nickname }, JWT_SECRET, { expiresIn: '30d' });
   logActivity(user.id, 'user', 'LOGIN', '', null, phone, req.ip);
-  res.json({ code: 0, data: { token, user: { id: user.id, phone: user.phone, nickname: user.nickname, avatar: user.avatar, balance: user.balance } } });
+  res.json({ code: 0, data: { token, user: { id: user.id, phone: user.phone, nickname: user.nickname, avatar: user.avatar, balance: user.balance, invite_code: user.invite_code }, isNew } });
 });
 
 // ── 公共接口 ─────────────────────────────────────────────
@@ -1367,6 +1418,61 @@ app.get('/api/admin/search', authMiddleware(['ADMIN', 'CS', 'BOTH']), (req, res)
   const players = db.prepare(`SELECT p.id, p.real_name, p.rating, p.status, u.phone FROM players p JOIN users u ON p.user_id = u.id WHERE p.real_name LIKE ? OR u.phone LIKE ? OR p.game_names LIKE ? LIMIT 5`).all(like, like, like);
   res.json({ code: 0, data: { orders, users, players } });
 });
+
+// ── 短信验证码 ───────────────────────────────────────────
+app.post('/api/sms/send', rateLimit(60000, 5), async (req, res) => {
+  const { phone, type = 'LOGIN' } = req.body;
+  if (!phone || !/^1\d{10}$/.test(phone)) return res.json({ code: 400, msg: '手机号格式不正确' });
+  const result = await sms.send(phone, type);
+  res.json({ code: result.success ? 0 : 400, msg: result.msg, data: result.code ? { testCode: result.code } : undefined });
+});
+
+// ── 文件上传 ─────────────────────────────────────────────
+app.post('/api/upload/:category', authMiddleware(['USER', 'ADMIN', 'CS', 'BOTH']), uploadMiddleware.single('file'), async (req, res) => {
+  if (!req.file) return res.json({ code: 400, msg: '请选择文件' });
+  const category = req.params.category || 'temp';
+  const allowedCategories = ['avatars', 'products', 'banners', 'chat', 'temp'];
+  if (!allowedCategories.includes(category)) return res.json({ code: 400, msg: '无效分类' });
+  const result = await upload.upload(req.file, category);
+  res.json(result);
+});
+
+// 静态文件服务（上传文件）
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ── 健康检查 ─────────────────────────────────────────────
+app.get('/api/health', (req, res) => res.json(health.check()));
+app.get('/api/alive', (req, res) => res.json(health.alive()));
+
+// ── 备份管理 ─────────────────────────────────────────────
+app.get('/api/admin/backups', authMiddleware(['ADMIN']), (req, res) => {
+  res.json({ code: 0, data: backup.list() });
+});
+
+app.post('/api/admin/backups', authMiddleware(['ADMIN']), (req, res) => {
+  const result = backup.backup();
+  res.json({ code: result.success ? 0 : 500, msg: result.success ? '备份成功' : result.error, data: result });
+});
+
+// ── 邀请/分销系统 ────────────────────────────────────────
+app.get('/api/user/invite', authMiddleware(['USER']), (req, res) => {
+  const stats = invite.getStats(req.user.id);
+  res.json({ code: 0, data: stats });
+});
+
+app.post('/api/user/invite/init', authMiddleware(['USER']), (req, res) => {
+  const code = invite.initUser(req.user.id);
+  res.json({ code: 0, data: { inviteCode: code } });
+});
+
+// ── RBAC 权限管理 ────────────────────────────────────────
+app.get('/api/admin/permissions', authMiddleware(['ADMIN']), (req, res) => {
+  res.json({ code: 0, data: { permissions: getAllPermissions(), roles: getAllRoles() } });
+});
+
+// ── 管理后台 API (带权限控制) ────────────────────────────
+// 示例：订单管理需要 order:view 权限
+// app.get('/api/admin/orders', authMiddleware(['ADMIN', 'CS', 'BOTH']), requirePermission('order:view'), (req, res) => { ... });
 
 // ── 聊天 API ─────────────────────────────────────────────
 // 获取或创建聊天会话
